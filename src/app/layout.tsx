@@ -24,8 +24,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex">
+    <html lang="es" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
+      <body className="min-h-full flex" suppressHydrationWarning>
         <TooltipProvider>
           <Sidebar />
           <div className="flex-1 flex flex-col min-h-screen">
