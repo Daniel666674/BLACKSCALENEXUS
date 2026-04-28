@@ -8,9 +8,14 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 function getAnalyticsClient() {
   const raw = process.env.GA4_CREDENTIALS;
   if (!raw) throw new Error("GA4_CREDENTIALS not set");
-  const credentials = JSON.parse(Buffer.from(raw, "base64").toString("utf-8"));
+  let credentials: unknown;
+  try {
+    credentials = JSON.parse(Buffer.from(raw, "base64").toString("utf-8"));
+  } catch {
+    throw new Error("GA4_CREDENTIALS is not valid base64-encoded JSON");
+  }
   const auth = new google.auth.GoogleAuth({
-    credentials,
+    credentials: credentials as Record<string, unknown>,
     scopes: ["https://www.googleapis.com/auth/analytics.readonly"],
   });
   return google.analyticsdata({ version: "v1beta", auth });
