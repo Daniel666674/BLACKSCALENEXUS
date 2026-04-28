@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { Header } from "@/components/layout/Header";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { NotificationChecker } from "@/components/shared/NotificationChecker";
+import { SessionProvider } from "@/components/providers/SessionProvider";
+import { AppShell } from "@/components/shared/AppShell";
+import { PrivacyPolicyModal } from "@/components/shared/PrivacyPolicyModal";
+import { PushManager } from "@/components/shared/PushManager";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -13,9 +15,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Auto-CRM - Tu CRM con Inteligencia Artificial",
-  description:
-    "CRM conversacional con pipeline de ventas, clasificacion automatica de leads y seguimiento inteligente. Construido con Claude Code.",
+  title: "BlackScale Nexus CRM",
+  description: "Sistema CRM de BlackScale Consulting",
+  manifest: "/manifest.json",
+  themeColor: "#1e293b",
 };
 
 export default function RootLayout({
@@ -26,17 +29,17 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full flex" suppressHydrationWarning>
-        <TooltipProvider>
-          <Sidebar />
-          <div className="flex-1 flex flex-col min-h-screen">
-            <Header />
-            <main className="flex-1 p-4 md:p-6 bg-background overflow-auto">
+        <SessionProvider>
+          <TooltipProvider>
+            <AppShell>
               {children}
-            </main>
-          </div>
-          <Toaster />
-          <NotificationChecker />
-        </TooltipProvider>
+            </AppShell>
+            <Toaster />
+            <NotificationChecker />
+            <PrivacyPolicyModal />
+            <PushManager />
+          </TooltipProvider>
+        </SessionProvider>
       </body>
     </html>
   );

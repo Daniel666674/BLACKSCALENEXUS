@@ -6,40 +6,57 @@ import fs from "fs";
 
 const DB_PATH = path.join(process.cwd(), "data", "crm.db");
 
-// Ensure data directory exists
 const dataDir = path.dirname(DB_PATH);
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
+function applyEncryption(db: Database.Database): void {
+  const key = process.env.ENCRYPTION_KEY;
+  if (!key) return;
+  try {
+    // Works when better-sqlite3 is compiled with SQLCipher on the VPS
+    db.pragma(`key='${key.replace(/'/g, "''")}'`);
+  } catch {
+    // SQLCipher not available in this build — logged at startup by checkEncryptionKey()
+  }
+}
+
+export function checkEncryptionKey(): void {
+  if (!process.env.ENCRYPTION_KEY) {
+    console.error(
+      "\n[NEXUS] FATAL: ENCRYPTION_KEY is not set.\n" +
+      "The database will not be encrypted. Set ENCRYPTION_KEY in your environment before starting.\n"
+    );
+    // In production, refuse to start
+    if (process.env.NODE_ENV === "production") {
+      process.exit(1);
+    }
+  }
+}
+
 function createDatabase(): Database.Database {
   const db = new Database(DB_PATH, { timeout: 15000 });
+  applyEncryption(db);
 
-  // Set pragmas individually with error handling
-  try {
-    db.pragma("journal_mode = WAL");
-  } catch {
-    // WAL mode might already be set by another process
-  }
-
-  try {
-    db.pragma("busy_timeout = 15000");
-  } catch {
-    // Ignore if can't set
-  }
-
-  try {
-    db.pragma("foreign_keys = ON");
-  } catch {
-    // Ignore
-  }
+  try { db.pragma("journal_mode = WAL"); } catch { /* already set */ }
+  try { db.pragma("busy_timeout = 15000"); } catch { /* ignore */ }
+  try { db.pragma("foreign_keys = ON"); } catch { /* ignore */ }
 
   return db;
 }
 
 function initTables(db: Database.Database): void {
-  // Each CREATE TABLE is its own statement to minimize lock time
   const tables = [
+    `CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'sales',
+      policy_acknowledged INTEGER NOT NULL DEFAULT 0,
+      policy_acknowledged_at INTEGER,
+      created_at INTEGER NOT NULL
+    )`,
     `CREATE TABLE IF NOT EXISTS contacts (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -50,6 +67,14 @@ function initTables(db: Database.Database): void {
       temperature TEXT NOT NULL DEFAULT 'cold',
       score INTEGER NOT NULL DEFAULT 0,
       notes TEXT,
+      engagement_status TEXT DEFAULT 'COLD',
+      needs_email_verification INTEGER DEFAULT 0,
+      last_brevo_sync INTEGER,
+      consent_given INTEGER NOT NULL DEFAULT 0,
+      consent_date INTEGER,
+      consent_source TEXT DEFAULT 'unknown',
+      retention_review_needed INTEGER NOT NULL DEFAULT 0,
+      retention_review_date INTEGER,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )`,
@@ -87,23 +112,65 @@ function initTables(db: Database.Database): void {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS audit_log (
+      id TEXT PRIMARY KEY,
+      user_name TEXT NOT NULL,
+      action TEXT NOT NULL,
+      entity_type TEXT,
+      entity_id TEXT,
+      details_json TEXT,
+      ip_address TEXT,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      endpoint TEXT NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS google_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      access_token_enc TEXT NOT NULL,
+      refresh_token_enc TEXT,
+      expiry_date INTEGER,
+      updated_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS analytics_cache (
+      id TEXT PRIMARY KEY,
+      data TEXT NOT NULL,
+      cached_at INTEGER NOT NULL
+    )`,
   ];
 
   for (const sql of tables) {
-    try {
-      db.exec(sql);
-    } catch {
-      // Table might already exist or DB is locked - safe to continue
-    }
+    try { db.exec(sql); } catch { /* table exists */ }
+  }
+
+  // Migrations for existing databases
+  const migrations = [
+    `ALTER TABLE contacts ADD COLUMN engagement_status TEXT DEFAULT 'COLD'`,
+    `ALTER TABLE contacts ADD COLUMN needs_email_verification INTEGER DEFAULT 0`,
+    `ALTER TABLE contacts ADD COLUMN last_brevo_sync INTEGER`,
+    `ALTER TABLE contacts ADD COLUMN consent_given INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE contacts ADD COLUMN consent_date INTEGER`,
+    `ALTER TABLE contacts ADD COLUMN consent_source TEXT DEFAULT 'unknown'`,
+    `ALTER TABLE contacts ADD COLUMN retention_review_needed INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE contacts ADD COLUMN retention_review_date INTEGER`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action)`,
+  ];
+
+  for (const sql of migrations) {
+    try { db.exec(sql); } catch { /* column exists */ }
   }
 }
 
 function seedDefaultStages(db: Database.Database): void {
   try {
-    const result = db
-      .prepare("SELECT COUNT(*) as count FROM pipeline_stages")
-      .get() as { count: number } | undefined;
-
+    const result = db.prepare("SELECT COUNT(*) as count FROM pipeline_stages").get() as { count: number } | undefined;
     if (!result || result.count > 0) return;
 
     const defaultStages = [
@@ -118,24 +185,13 @@ function seedDefaultStages(db: Database.Database): void {
     const insert = db.prepare(
       `INSERT OR IGNORE INTO pipeline_stages (id, name, "order", color, is_won, is_lost) VALUES (?, ?, ?, ?, ?, ?)`
     );
-
     const seedAll = db.transaction(() => {
       for (const stage of defaultStages) {
-        insert.run(
-          crypto.randomUUID(),
-          stage.name,
-          stage.order,
-          stage.color,
-          stage.isWon,
-          stage.isLost
-        );
+        insert.run(crypto.randomUUID(), stage.name, stage.order, stage.color, stage.isWon, stage.isLost);
       }
     });
-
     seedAll();
-  } catch {
-    // Seeding can fail if another worker is doing it — that's fine
-  }
+  } catch { /* seeding can fail if another worker is doing it */ }
 }
 
 const sqlite = createDatabase();
