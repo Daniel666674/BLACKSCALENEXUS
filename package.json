@@ -13,7 +13,7 @@
     "db:push": "npx drizzle-kit push",
     "local": "npm run build && npm run init && npm start",
     "mcp": "npx tsx mcp/crm-server.ts",
-    "seed:users": "npx tsx scripts/seed-users.ts",
+    "seed:roles": "npx tsx scripts/seed-roles.ts",
     "postinstall": "mkdir -p data"
   },
   "dependencies": {

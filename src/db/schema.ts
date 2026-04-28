@@ -3,7 +3,7 @@ import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 export const users = sqliteTable("users", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash").notNull().default(""),
   role: text("role").notNull().default("sales"),
   policyAcknowledged: integer("policy_acknowledged", { mode: "boolean" }).notNull().default(false),
   policyAcknowledgedAt: integer("policy_acknowledged_at", { mode: "timestamp" }),
