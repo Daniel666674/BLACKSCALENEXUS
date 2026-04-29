@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlackScale — Marketing Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Poppins', -apple-system, sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; }
+
+  :root {
+    --mkt-bg: #0a0a09;
+    --mkt-surface: #11110F;
+    --mkt-sidebar: #0c0c0b;
+    --mkt-border: rgba(215,210,203,0.07);
+    --mkt-text: #D7D2CB;
+    --mkt-text-muted: #7a756e;
+    --mkt-accent: #D19C15;
+    --mkt-nav-active-bg: rgba(209,156,21,0.08);
+    --mkt-nav-active-text: #D19C15;
+  }
+
+  .mkt-card {
+    background: var(--mkt-surface);
+    border: 1px solid var(--mkt-border);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .mkt-card:hover { border-color: rgba(255,255,255,0.1); }
+  .mkt-engagement-card:hover { border-color: rgba(209,156,21,0.25) !important; }
+  .mkt-campaign-card:hover { border-color: rgba(209,156,21,0.25) !important; box-shadow: 0 0 20px rgba(209,156,21,0.04); }
+  .mkt-nav-item:hover { background: rgba(255,255,255,0.03) !important; }
+  .mkt-pass-btn:hover { background: var(--mkt-accent) !important; color: #0a0a0a !important; }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(209,156,21,0.1); border-radius: 3px; }
+
+  select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237a756e' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px !important; }
+  select option { background: #11110F; color: #D7D2CB; }
+  input::placeholder, textarea::placeholder { color: var(--mkt-text-muted); opacity: 0.5; }
+  .mkt-tweaks-panel {
+    position: fixed; bottom: 16px; right: 16px; z-index: 100;
+    width: 290px; background: var(--mkt-surface); border: 1px solid var(--mkt-border);
+    border-radius: 14px; padding: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    font-family: 'Poppins', sans-serif; color: var(--mkt-text); display: none;
+  }
+  .mkt-tweaks-panel.visible { display: block; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Shared helpers from CRM data -->
+<script type="text/babel" src="crm-data.jsx"></script>
+<script type="text/babel" src="mkt-data.jsx"></script>
+<script type="text/babel" src="mkt-layout.jsx"></script>
+<script type="text/babel" src="mkt-engagement.jsx"></script>
+<script type="text/babel" src="mkt-campaigns.jsx"></script>
+<script type="text/babel" src="mkt-segments.jsx"></script>
+<script type="text/babel" src="mkt-handoff.jsx"></script>
+<script type="text/babel" src="crm-sales-g1.jsx"></script>
+<script type="text/babel" src="mkt-new-screens.jsx"></script>
+<script type="text/babel" src="bs-spinner.jsx"></script>
+
+<script type="text/babel">
+const MKT_TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "gold",
+  "cardRadius": 20,
+  "density": "spacious"
+}/*EDITMODE-END*/;
+
+const MKT_THEMES = {
+  "gold": {
+    label: "Blackscale Gold", swatch: "#D19C15",
+    accent: "#D19C15", bg: "#0a0a09", surface: "#11110F",
+    sidebar: "#0c0c0b", border: "rgba(215,210,203,0.07)",
+    text: "#D7D2CB", textMuted: "#7a756e",
+    navActiveBg: "rgba(209,156,21,0.08)", navActiveText: "#D19C15",
+  },
+  "caoba": {
+    label: "Blackscale Caoba", swatch: "#8a3040",
+    accent: "#8a3040", bg: "#0a0a09", surface: "#11110F",
+    sidebar: "#0c0c0b", border: "rgba(215,210,203,0.07)",
+    text: "#D7D2CB", textMuted: "#7a756e",
+    navActiveBg: "rgba(85,28,37,0.12)", navActiveText: "#8a3040",
+  },
+  "silver": {
+    label: "Blackscale Silver", swatch: "#D7D2CB",
+    accent: "#D7D2CB", bg: "#0a0a09", surface: "#11110F",
+    sidebar: "#0c0c0b", border: "rgba(215,210,203,0.07)",
+    text: "#D7D2CB", textMuted: "#7a756e",
+    navActiveBg: "rgba(215,210,203,0.06)", navActiveText: "#D7D2CB",
+  },
+};
+
+function applyMktTheme(themeId) {
+  const t = MKT_THEMES[themeId] || MKT_THEMES["gold"];
+  const r = document.documentElement;
+  r.style.setProperty("--mkt-accent", t.accent);
+  r.style.setProperty("--mkt-bg", t.bg);
+  r.style.setProperty("--mkt-surface", t.surface);
+  r.style.setProperty("--mkt-sidebar", t.sidebar);
+  r.style.setProperty("--mkt-border", t.border);
+  r.style.setProperty("--mkt-text", t.text);
+  r.style.setProperty("--mkt-text-muted", t.textMuted);
+  r.style.setProperty("--mkt-nav-active-bg", t.navActiveBg);
+  r.style.setProperty("--mkt-nav-active-text", t.navActiveText);
+}
+
+function MarketingApp() {
+  const [authed, setAuthed] = React.useState(!!sessionStorage.getItem("bs-auth"));
+  const [navigating, setNavigating] = React.useState(false);
+  const [section, setSection] = React.useState(localStorage.getItem("mkt-section") || "engagement");
+  const [tweaks, setTweaks] = React.useState(MKT_TWEAK_DEFAULTS);
+  const [tweaksVisible, setTweaksVisible] = React.useState(false);
+
+  React.useEffect(() => { applyMktTheme(tweaks.theme); }, [tweaks.theme]);
+
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (e.data?.type === "__activate_edit_mode") setTweaksVisible(true);
+      if (e.data?.type === "__deactivate_edit_mode") setTweaksVisible(false);
+    };
+    window.addEventListener("message", handler);
+    window.parent.postMessage({ type: "__edit_mode_available" }, "*");
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
+  const updateTweak = (key, val) => {
+    const next = { ...tweaks, [key]: val };
+    setTweaks(next);
+    window.parent.postMessage({ type: "__edit_mode_set_keys", edits: { [key]: val } }, "*");
+  };
+
+  const navigate = (s) => {
+    setNavigating(true);
+    const delay = Math.floor(Math.random() * 350) + 250;
+    setTimeout(() => {
+      setSection(s);
+      localStorage.setItem("mkt-section", s);
+      setNavigating(false);
+    }, delay);
+  };
+
+  const renderSection = () => {
+    switch (section) {
+      case "engagement": return <EngagementBoard />;
+      case "campaigns": return <CampaignWall />;
+      case "segments": return <SegmentHealth />;
+      case "attribution": return <AttributionDashboard />;
+      case "handoff": return <HandoffCenter />;
+      // GROUP 2 — Audience Intelligence
+      case "segment-health": return <MktSegmentHealthNew />;
+      case "icp-insights": return <MktIcpInsights />;
+      case "lists": return <MktLists />;
+      // GROUP 3 — Pipeline Visibility
+      case "pipeline-view": return <MktPipelineView />;
+      case "lead-velocity": return <MktLeadVelocity />;
+      // GROUP 4 — Performance 360
+      case "analytics": return <MktAnalytics />;
+      // GROUP 5 — Content & Planning
+      case "calendar": return <MktCalendar />;
+      case "abm": return <MktAbm />;
+      // GROUP 6 — Reporting
+      case "digest": return <MktDigest />;
+      case "roi": return <MktRoi />;
+      case "export": return <MktExport />;
+      // Shared
+      case "integrations": return <IntegrationsScreen />;
+      case "spinner-demo": return <BSSpinnerDemo />;
+      default: return <EngagementBoard />;
+    }
+  };
+
+  const padding = tweaks.density === "compact" ? 12 : tweaks.density === "spacious" ? 20 : 16;
+
+  if (!authed) {
+    return React.createElement(LoginScreen, { onLogin: () => setAuthed(true), appName: "BlackScale Nexus", role: "Marketing" });
+  }
+
+  return (
+    <MarketingProvider>
+      {navigating && <NavigatingOverlay />}
+      <MarketingLayout currentSection={section} onNavigate={navigate}
+        onSwitchToSales={() => window.location.href = "Auto-CRM.html"}>
+        {renderSection()}
+      </MarketingLayout>
+
+      {/* Tweaks Panel */}
+      <div className={`mkt-tweaks-panel ${tweaksVisible ? "visible" : ""}`}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>Tweaks — Nexus</span>
+          <button onClick={() => { setTweaksVisible(false); window.parent.postMessage({ type: "__edit_mode_dismissed" }, "*"); }}
+            style={{ background: "none", border: "none", color: "var(--mkt-text-muted)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
+        </div>
+
+        {/* Theme */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: "var(--mkt-text-muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>Theme</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {Object.entries(MKT_THEMES).map(([id, t]) => (
+              <button key={id} onClick={() => updateTweak("theme", id)}
+                style={{
+                  flex: 1, padding: "8px 4px", borderRadius: 8, fontSize: 10, fontWeight: 500, cursor: "pointer",
+                  border: tweaks.theme === id ? `1px solid ${t.swatch}` : "1px solid var(--mkt-border)",
+                  background: tweaks.theme === id ? `${t.swatch}12` : "transparent",
+                  color: tweaks.theme === id ? t.swatch : "var(--mkt-text-muted)",
+                  transition: "all 0.15s",
+                }}>
+                <div style={{ width: 18, height: 18, borderRadius: "50%", background: t.swatch, margin: "0 auto 5px", border: tweaks.theme === id ? `2px solid ${t.swatch}` : "none" }} />
+                {t.label.split(" ")[1]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Card radius */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: "var(--mkt-text-muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            Redondez de tarjetas — {tweaks.cardRadius}px
+          </div>
+          <input type="range" min={0} max={20} step={2} value={tweaks.cardRadius}
+            onChange={e => updateTweak("cardRadius", parseInt(e.target.value))}
+            style={{ width: "100%", accentColor: "var(--mkt-accent)" }} />
+        </div>
+
+        {/* Density */}
+        <div>
+          <div style={{ fontSize: 11, color: "var(--mkt-text-muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>Densidad</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {["compact", "comfortable", "spacious"].map(d => (
+              <button key={d} onClick={() => updateTweak("density", d)}
+                style={{
+                  flex: 1, padding: "6px 4px", borderRadius: 6, fontSize: 10, fontWeight: 500, cursor: "pointer",
+                  border: tweaks.density === d ? "1px solid var(--mkt-accent)" : "1px solid var(--mkt-border)",
+                  background: tweaks.density === d ? "rgba(209,156,21,0.08)" : "transparent",
+                  color: tweaks.density === d ? "var(--mkt-accent)" : "var(--mkt-text-muted)",
+                  textTransform: "capitalize", transition: "all 0.15s",
+                }}>{d}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </MarketingProvider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<MarketingApp />);
+</script>
+</body>
+</html>
