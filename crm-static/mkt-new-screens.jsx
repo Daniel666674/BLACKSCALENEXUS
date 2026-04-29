@@ -399,97 +399,174 @@ function MktAnalytics() {
 // ── GROUP 5: CONTENT & PLANNING ───────────────────────────────────────────────
 
 function MktCalendar() {
+  const now = new Date();
+  const [currentYear, setCurrentYear] = React.useState(now.getFullYear());
+  const [currentMonth, setCurrentMonth] = React.useState(now.getMonth());
   const [entries, setEntries] = React.useState(CALENDAR_SEED);
-  const [selected, setSelected] = React.useState(null);
-  const [showAdd, setShowAdd] = React.useState(false);
-  const [form, setForm] = React.useState({ title: "", channel: "Email", status: "Planeado", publishDate: "", campaign: "", notes: "" });
+  const [modal, setModal] = React.useState(null); // null | { mode: "add"|"edit", entry?, day?, hour? }
+  const [form, setForm] = React.useState({ title:"", channel:"Email", status:"Planeado", date:"", time:"09:00", campaign:"", notes:"", type:"Contenido" });
 
-  const STATUSES = ["Planeado", "En progreso", "Publicado"];
-  const CHANNELS = ["LinkedIn", "Email", "Meta", "Blog"];
+  const STATUSES = ["Planeado","En progreso","Publicado"];
+  const CHANNELS = ["LinkedIn","Email","Meta","Blog","WhatsApp","YouTube"];
+  const TYPES    = ["Contenido","Campaña Brevo","Pauta Meta","Pauta Google","Post LinkedIn","Webinar","Otro"];
+  const MONTH_NAMES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
-  const year = 2026, month = 4; // May 2026 (0-indexed)
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay    = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+  const todayDate   = now.getDate();
+  const isThisMonth = now.getFullYear()===currentYear && now.getMonth()===currentMonth;
 
-  const dayEntries = (day) => {
-    const ts = new Date(year, month, day).getTime();
-    return entries.filter(e => {
-      const d = new Date(e.publishDate);
-      return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
+  const dayEntries = (day) => entries.filter(e => {
+    const d = new Date(e.publishDate);
+    return d.getFullYear()===currentYear && d.getMonth()===currentMonth && d.getDate()===day;
+  }).sort((a,b) => new Date(a.publishDate) - new Date(b.publishDate));
+
+  const openAdd = (day) => {
+    const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+    setForm({ title:"", channel:"Email", status:"Planeado", date:dateStr, time:"09:00", campaign:"", notes:"", type:"Contenido" });
+    setModal({ mode:"add", day });
+  };
+
+  const openEdit = (e, ev) => {
+    ev.stopPropagation();
+    const d = new Date(e.publishDate);
+    setForm({
+      title:e.title, channel:e.channel, status:e.status,
+      date:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`,
+      time:`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`,
+      campaign:e.campaign||"", notes:e.notes||"", type:e.type||"Contenido",
     });
+    setModal({ mode:"edit", entry:e });
   };
 
-  const updateEntry = (id, field, val) => setEntries(prev => prev.map(e => e.id === id ? { ...e, [field]: val } : e));
-  const addEntry = () => {
-    setEntries(prev => [{ ...form, id: `cal${Date.now()}`, publishDate: form.publishDate ? new Date(form.publishDate).getTime() : Date.now() }, ...prev]);
-    setForm({ title: "", channel: "Email", status: "Planeado", publishDate: "", campaign: "", notes: "" });
-    setShowAdd(false);
+  const deleteEntry = (id, ev) => { ev.stopPropagation(); setEntries(p=>p.filter(x=>x.id!==id)); };
+
+  const saveEntry = () => {
+    const [y,mo,d] = form.date.split("-").map(Number);
+    const [h,mi]   = form.time.split(":").map(Number);
+    const ts = new Date(y, mo-1, d, h, mi).getTime();
+    if (modal.mode==="add") {
+      setEntries(p=>[...p, { ...form, id:`cal${Date.now()}`, publishDate:ts }]);
+    } else {
+      setEntries(p=>p.map(e=>e.id===modal.entry.id ? { ...e, ...form, publishDate:ts } : e));
+    }
+    setModal(null);
   };
+
+  const fStyle = { width:"100%", padding:"8px 10px", borderRadius:8, border:"1px solid var(--mkt-border)", background:"var(--mkt-bg)", color:"var(--mkt-text)", fontSize:13, outline:"none" };
+  const lStyle = { fontSize:11, color:"var(--mkt-text-muted)", display:"block", marginBottom:4 };
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
-        <MktSectionHeader title="Content Calendar — Mayo 2026" subtitle="Plan de contenidos mensual · haz clic para editar" />
-        <button onClick={() => setShowAdd(true)}
-          style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "var(--mkt-accent)", color: "#0a0a0a", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-          + Agregar contenido
-        </button>
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <button onClick={()=>{ const d=new Date(currentYear,currentMonth-1,1); setCurrentYear(d.getFullYear()); setCurrentMonth(d.getMonth()); }} style={{ padding:"5px 10px", borderRadius:6, border:"1px solid var(--mkt-border)", background:"transparent", color:"var(--mkt-text-muted)", cursor:"pointer", fontSize:14 }}>‹</button>
+          <div style={{ fontSize:17, fontWeight:700 }}>{MONTH_NAMES[currentMonth]} {currentYear}</div>
+          <button onClick={()=>{ const d=new Date(currentYear,currentMonth+1,1); setCurrentYear(d.getFullYear()); setCurrentMonth(d.getMonth()); }} style={{ padding:"5px 10px", borderRadius:6, border:"1px solid var(--mkt-border)", background:"transparent", color:"var(--mkt-text-muted)", cursor:"pointer", fontSize:14 }}>›</button>
+        </div>
+        <div style={{ fontSize:11, color:"var(--mkt-text-muted)" }}>Haz clic en cualquier día para agregar contenido</div>
       </div>
 
       {/* Modal */}
-      {(showAdd || selected) && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ width: 440, background: "var(--mkt-surface)", border: "1px solid var(--mkt-border)", borderRadius: 14, padding: 24 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>{selected ? "Editar entrada" : "Nueva entrada"}</div>
-            {[["title","Título"],["campaign","Campaña vinculada"]].map(([k,l]) => (
-              <div key={k} style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 11, color: "var(--mkt-text-muted)", display: "block", marginBottom: 5 }}>{l}</label>
-                <input value={selected ? selected[k] : form[k]} onChange={e => selected ? updateEntry(selected.id, k, e.target.value) : setForm(p => ({ ...p, [k]: e.target.value }))}
-                  style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--mkt-border)", background: "var(--mkt-bg)", color: "var(--mkt-text)", fontSize: 13 }} />
+      {modal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:50, display:"flex", alignItems:"center", justifyContent:"center" }} onClick={()=>setModal(null)}>
+          <div style={{ width:480, background:"var(--mkt-surface)", border:"1px solid var(--mkt-border)", borderRadius:14, padding:24 }} onClick={e=>e.stopPropagation()}>
+            <div style={{ fontSize:16, fontWeight:700, marginBottom:20 }}>{modal.mode==="add" ? `Agregar — ${modal.day} ${MONTH_NAMES[currentMonth]}` : "Editar entrada"}</div>
+
+            <div style={{ marginBottom:12 }}>
+              <label style={lStyle}>Título *</label>
+              <input style={fStyle} value={form.title} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="Ej: Newsletter Mayo — Outreach" />
+            </div>
+
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
+              <div>
+                <label style={lStyle}>Tipo</label>
+                <select style={fStyle} value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))}>
+                  {TYPES.map(t=><option key={t}>{t}</option>)}
+                </select>
               </div>
-            ))}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-              {[["channel","Canal",CHANNELS],["status","Estado",STATUSES]].map(([k,l,opts]) => (
-                <div key={k}>
-                  <label style={{ fontSize: 11, color: "var(--mkt-text-muted)", display: "block", marginBottom: 5 }}>{l}</label>
-                  <select value={selected ? selected[k] : form[k]} onChange={e => selected ? updateEntry(selected.id, k, e.target.value) : setForm(p => ({ ...p, [k]: e.target.value }))}
-                    style={{ width: "100%", padding: "7px 24px 7px 8px", borderRadius: 8, border: "1px solid var(--mkt-border)", background: "var(--mkt-bg)", color: "var(--mkt-text)", fontSize: 13 }}>
-                    {opts.map(o => <option key={o}>{o}</option>)}
-                  </select>
-                </div>
-              ))}
+              <div>
+                <label style={lStyle}>Canal</label>
+                <select style={fStyle} value={form.channel} onChange={e=>setForm(p=>({...p,channel:e.target.value}))}>
+                  {CHANNELS.map(c=><option key={c}>{c}</option>)}
+                </select>
+              </div>
             </div>
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 11, color: "var(--mkt-text-muted)", display: "block", marginBottom: 5 }}>Notas</label>
-              <textarea rows={2} value={selected ? selected.notes : form.notes} onChange={e => selected ? updateEntry(selected.id, "notes", e.target.value) : setForm(p => ({ ...p, notes: e.target.value }))}
-                style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--mkt-border)", background: "var(--mkt-bg)", color: "var(--mkt-text)", fontSize: 13, resize: "none" }} />
+
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
+              <div>
+                <label style={lStyle}>Fecha</label>
+                <input type="date" style={fStyle} value={form.date} onChange={e=>setForm(p=>({...p,date:e.target.value}))} />
+              </div>
+              <div>
+                <label style={lStyle}>Hora</label>
+                <input type="time" style={fStyle} value={form.time} onChange={e=>setForm(p=>({...p,time:e.target.value}))} />
+              </div>
             </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => { setSelected(null); setShowAdd(false); }} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "1px solid var(--mkt-border)", background: "transparent", color: "var(--mkt-text-muted)", fontSize: 13, cursor: "pointer" }}>Cerrar</button>
-              {!selected && <button onClick={addEntry} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: "var(--mkt-accent)", color: "#0a0a0a", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Agregar</button>}
+
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
+              <div>
+                <label style={lStyle}>Estado</label>
+                <select style={fStyle} value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))}>
+                  {STATUSES.map(s=><option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lStyle}>Campaña vinculada</label>
+                <input style={fStyle} value={form.campaign} onChange={e=>setForm(p=>({...p,campaign:e.target.value}))} placeholder="Opcional" />
+              </div>
+            </div>
+
+            <div style={{ marginBottom:16 }}>
+              <label style={lStyle}>Notas</label>
+              <textarea rows={2} style={{...fStyle, resize:"none"}} value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} />
+            </div>
+
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={()=>setModal(null)} style={{ flex:1, padding:"10px", borderRadius:8, border:"1px solid var(--mkt-border)", background:"transparent", color:"var(--mkt-text-muted)", fontSize:13, cursor:"pointer" }}>Cancelar</button>
+              {modal.mode==="edit" && <button onClick={()=>{ deleteEntry(modal.entry.id,{stopPropagation:()=>{}}); setModal(null); }} style={{ padding:"10px 16px", borderRadius:8, border:"1px solid rgba(239,68,68,0.3)", background:"transparent", color:"#ef4444", fontSize:13, cursor:"pointer" }}>Eliminar</button>}
+              <button onClick={saveEntry} disabled={!form.title} style={{ flex:1, padding:"10px", borderRadius:8, border:"none", background:"var(--mkt-accent)", color:"#0a0a0a", fontSize:13, fontWeight:600, cursor:"pointer", opacity:form.title?1:0.5 }}>{modal.mode==="add"?"Agregar":"Guardar"}</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Calendar grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 }}>
-        {["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"].map(d => (
-          <div key={d} style={{ padding: "8px 4px", textAlign: "center", fontSize: 11, color: "var(--mkt-text-muted)", fontWeight: 600 }}>{d}</div>
+      {/* Grid */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2 }}>
+        {["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"].map(d=>(
+          <div key={d} style={{ padding:"8px 4px", textAlign:"center", fontSize:11, color:"var(--mkt-text-muted)", fontWeight:600 }}>{d}</div>
         ))}
-        {Array.from({ length: firstDay }, (_, i) => <div key={`empty-${i}`} />)}
-        {Array.from({ length: daysInMonth }, (_, i) => {
-          const day = i + 1;
-          const dayEvts = dayEntries(day);
-          const today = day === 23;
+        {Array.from({length:firstDay},(_,i)=><div key={`e${i}`}/>)}
+        {Array.from({length:daysInMonth},(_,i)=>{
+          const day=i+1;
+          const evts=dayEntries(day);
+          const isToday=isThisMonth && day===todayDate;
           return (
-            <div key={day} style={{ minHeight: 70, padding: 6, borderRadius: 6, background: today ? "rgba(209,156,21,0.06)" : "rgba(255,255,255,0.02)", border: `1px solid ${today ? "rgba(209,156,21,0.25)" : "var(--mkt-border)"}` }}>
-              <div style={{ fontSize: 12, fontWeight: today ? 700 : 400, color: today ? "var(--mkt-accent)" : "var(--mkt-text-muted)", marginBottom: 4 }}>{day}</div>
-              {dayEvts.map(e => (
-                <div key={e.id} onClick={() => setSelected(e)} style={{ fontSize: 10, padding: "2px 5px", borderRadius: 4, marginBottom: 2, background: `${CHANNEL_COLORS[e.channel] || "#7a756e"}22`, color: CHANNEL_COLORS[e.channel] || "#7a756e", fontWeight: 600, cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {e.title}
-                </div>
-              ))}
+            <div key={day} onClick={()=>openAdd(day)}
+              style={{ minHeight:72, padding:5, borderRadius:6, cursor:"pointer",
+                background:isToday?"rgba(209,156,21,0.06)":"rgba(255,255,255,0.02)",
+                border:`1px solid ${isToday?"rgba(209,156,21,0.3)":"var(--mkt-border)"}`,
+                transition:"border-color 0.15s", position:"relative" }}
+              onMouseEnter={e=>!isToday&&(e.currentTarget.style.borderColor="rgba(209,156,21,0.2)")}
+              onMouseLeave={e=>!isToday&&(e.currentTarget.style.borderColor="var(--mkt-border)")}>
+              <div style={{ fontSize:11, fontWeight:isToday?700:400, color:isToday?"var(--mkt-accent)":"var(--mkt-text-muted)", marginBottom:3 }}>{day}</div>
+              {evts.map(e=>{
+                const h=new Date(e.publishDate).getHours();
+                const m=new Date(e.publishDate).getMinutes();
+                const timeStr=`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+                return (
+                  <div key={e.id} onClick={ev=>openEdit(e,ev)}
+                    style={{ fontSize:9, padding:"2px 4px", borderRadius:3, marginBottom:2,
+                      background:`${CHANNEL_COLORS[e.channel]||"#7a756e"}22`,
+                      color:CHANNEL_COLORS[e.channel]||"#7a756e",
+                      fontWeight:600, cursor:"pointer", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                      borderLeft:`2px solid ${CHANNEL_COLORS[e.channel]||"#7a756e"}` }}>
+                    {timeStr} {e.title}
+                  </div>
+                );
+              })}
+              {evts.length===0 && <div style={{ fontSize:9, color:"rgba(255,255,255,0.05)", textAlign:"center", marginTop:16 }}>+</div>}
             </div>
           );
         })}

@@ -50,13 +50,28 @@ function detectChannel(campaign) {
 }
 
 function mapBrevoToCampaign(c, i) {
-  const gs   = c.statistics?.globalStats || {};
-  // Brevo uses "uniqueViews" for unique opens, "viewed" for total opens
-  const sent        = parseInt(gs.sent || gs.delivered || gs.recipients || "0") || 0;
-  const opens       = parseInt(gs.uniqueViews || gs.uniqueOpens || gs.opens || "0") || 0;
-  const clicks      = parseInt(gs.uniqueClicks || gs.clickers || "0") || 0;
-  const replied     = parseInt(gs.replied || "0") || 0;
-  const unsubscribed = parseInt(gs.unsubscriptions || gs.unsubscribed || "0") || 0;
+  // Brevo individual campaign detail has statistics.globalStats
+  const gs = c.statistics?.globalStats || {};
+  // campaignStats is an array per list — sum them all
+  const cs = (c.statistics?.campaignStats || []).reduce((acc, s) => ({
+    sent:          (acc.sent||0)          + (s.sent||0),
+    uniqueViews:   (acc.uniqueViews||0)   + (s.uniqueViews||0),
+    uniqueClicks:  (acc.uniqueClicks||0)  + (s.uniqueClicks||0),
+    unsubscriptions:(acc.unsubscriptions||0)+(s.unsubscriptions||0),
+    softBounces:   (acc.softBounces||0)   + (s.softBounces||0),
+    hardBounces:   (acc.hardBounces||0)   + (s.hardBounces||0),
+  }), {});
+
+  const sent         = gs.sent         || cs.sent         || c.statistics?.campaignStats?.[0]?.sent || 0;
+  const opens        = gs.uniqueViews  || cs.uniqueViews  || 0;
+  const clicks       = gs.uniqueClicks || cs.uniqueClicks || 0;
+  const unsubscribed = gs.unsubscriptions || cs.unsubscriptions || 0;
+  const softBounces  = gs.softBounces  || cs.softBounces  || 0;
+  const hardBounces  = gs.hardBounces  || cs.hardBounces  || 0;
+  const delivered    = sent - softBounces - hardBounces;
+
+  // Brevo calculates open rate against delivered, not sent
+  const base = delivered > 0 ? delivered : sent;
 
   return {
     id:            `camp${c.id || i}`,
@@ -66,14 +81,19 @@ function mapBrevoToCampaign(c, i) {
     startDate:     new Date(c.scheduledAt || c.createdAt || Date.now()).getTime(),
     targetSegment: c.recipients?.listIds?.length ? `${c.recipients.listIds.length} lista(s)` : "Todos",
     cadenceType:   "outreach",
-    openRate:      sent > 0 ? Math.round((opens / sent) * 100)   : 0,
-    clickRate:     sent > 0 ? Math.round((clicks / sent) * 100)  : 0,
-    replyRate:     sent > 0 ? Math.round((replied / sent) * 100) : 0,
+    openRate:      base > 0 ? parseFloat(((opens  / base) * 100).toFixed(1)) : 0,
+    clickRate:     base > 0 ? parseFloat(((clicks / base) * 100).toFixed(1)) : 0,
+    replyRate:     0,
     totalContacts: sent,
-    conversions:   replied,
+    delivered,
+    opens,
+    clicks,
     unsubscribed,
+    softBounces,
+    hardBounces,
     lastSent:      c.sentDate ? new Date(c.sentDate).getTime() : null,
     brevoId:       c.id,
+    rawStats:      gs,
   };
 }
 
