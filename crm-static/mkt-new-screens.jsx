@@ -298,12 +298,12 @@ function MktPipelineView() {
 }
 
 function MktLeadVelocity() {
-  const totalThisWeek = LEAD_VELOCITY[LEAD_VELOCITY.length - 1].total;
+  const totalThisWeek = LEAD_VELOCITY.length > 0 ? LEAD_VELOCITY[LEAD_VELOCITY.length - 1].total : 0;
   const avgHandoffDays = 18; // simulated avg from first contact to handoff
 
-  const maxTotal = Math.max(...LEAD_VELOCITY.map(w => w.total), 1);
+  const maxTotal = LEAD_VELOCITY.length > 0 ? Math.max(...LEAD_VELOCITY.map(w => w.total), 1) : 1;
   const W = 500, H = 140, PAD = 20;
-  const segW = W / LEAD_VELOCITY.length;
+  const segW = LEAD_VELOCITY.length > 0 ? W / LEAD_VELOCITY.length : W;
   const bw = segW * 0.55;
 
   const channels = ["website", "linkedin", "email", "events"];
@@ -349,7 +349,7 @@ function MktAnalytics() {
 
   const avgOpenRate = campaigns.length ? (campaigns.reduce((s, c) => s + c.open_rate, 0) / campaigns.length).toFixed(1) : 0;
   const avgClickRate = campaigns.length ? (campaigns.reduce((s, c) => s + c.click_rate, 0) / campaigns.length).toFixed(1) : 0;
-  const totalSent = campaigns.reduce((s, c) => s + c.total_contacts, 0);
+  const totalSent = campaigns.reduce((s, c) => s + (c.total_contacts || c.totalContacts || 0), 0);
 
   const integrations = [
     { id: "ga", name: "Google Analytics", icon: "📊", status: "Pendiente", metrics: [{ l: "Sesiones", v: "—" }, { l: "Conversiones", v: "—" }, { l: "Fuente top", v: "—" }] },
