@@ -33,8 +33,10 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const { contactId, action } = await req.json();
-  if (!contactId || !["conservar", "eliminar"].includes(action)) {
+  let body: { contactId?: string; action?: string };
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }
+  const { contactId, action } = body;
+  if (!contactId || !["conservar", "eliminar"].includes(action ?? "")) {
     return NextResponse.json({ error: "Parámetros inválidos" }, { status: 400 });
   }
 

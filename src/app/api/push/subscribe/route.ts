@@ -9,7 +9,9 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const { endpoint, keys } = await req.json();
+  let body: { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }
+  const { endpoint, keys } = body;
   if (!endpoint || !keys?.p256dh || !keys?.auth) {
     return NextResponse.json({ error: "Suscripción inválida" }, { status: 400 });
   }

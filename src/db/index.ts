@@ -194,6 +194,7 @@ function seedDefaultStages(db: Database.Database): void {
   } catch { /* seeding can fail if another worker is doing it */ }
 }
 
+checkEncryptionKey();
 const sqlite = createDatabase();
 initTables(sqlite);
 seedDefaultStages(sqlite);

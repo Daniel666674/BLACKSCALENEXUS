@@ -7,8 +7,11 @@ import crypto from "crypto";
 const ALGORITHM = "aes-256-gcm";
 
 function getEncryptionKey(): Buffer {
-  const key = process.env.ENCRYPTION_KEY ?? "";
-  return crypto.scryptSync(key, "nexus-gcal-salt", 32);
+  const key = process.env.ENCRYPTION_KEY;
+  if (!key && process.env.NODE_ENV === "production") {
+    console.error("[NEXUS] ENCRYPTION_KEY missing — Google Calendar tokens stored with weak key");
+  }
+  return crypto.scryptSync(key ?? "", "nexus-gcal-salt", 32);
 }
 
 export function encryptToken(plaintext: string): string {

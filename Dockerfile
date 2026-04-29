@@ -20,13 +20,13 @@ RUN npm run build
 # Create data directory
 RUN mkdir -p data
 
-# Initialize database
-RUN npx tsx scripts/init.ts
-
 # Expose port
 EXPOSE 3000
 
 ENV NODE_ENV=production
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["npm", "start"]
+COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
