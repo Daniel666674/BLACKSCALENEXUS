@@ -111,6 +111,61 @@ function applyMktTheme(themeId) {
   r.style.setProperty("--mkt-nav-active-text", t.navActiveText);
 }
 
+function LoginScreen({ onLogin, appName = "BlackScale Nexus", role = "Marketing" }) {
+  const [error, setError] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client";
+    s.async = true;
+    s.onload = () => setTimeout(initGSI, 100);
+    document.head.appendChild(s);
+  }, []);
+
+  function initGSI() {
+    window.google.accounts.id.initialize({
+      client_id: "302408583182-itlfhs7eu6unejhm3u28jm6u2dk861b6.apps.googleusercontent.com",
+      callback: handleCredential,
+    });
+    const btn = document.getElementById("g-signin-btn");
+    if (btn) window.google.accounts.id.renderButton(btn, { theme:"filled_black", size:"large", text:"signin_with", shape:"rectangular", width:280 });
+  }
+
+  function parseJwt(token) {
+    try { return JSON.parse(atob(token.split(".")[1])); } catch(e) { return null; }
+  }
+
+  function handleCredential(response) {
+    setLoading(true);
+    const payload = parseJwt(response.credential);
+    if (!payload) { setError("Error al verificar credenciales."); setLoading(false); return; }
+    const email = payload.email || "";
+    if (!email.endsWith("@blackscale.consulting")) { setError("Solo cuentas @blackscale.consulting tienen acceso."); setLoading(false); return; }
+    sessionStorage.setItem("bs-auth", "1");
+    sessionStorage.setItem("bs-user", JSON.stringify({ name: payload.name, email, picture: payload.picture }));
+    onLogin();
+  }
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"#0a0a09", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999, fontFamily:"'Poppins',sans-serif" }}>
+      <div style={{ position:"absolute", inset:0, backgroundImage:"linear-gradient(rgba(209,156,21,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(209,156,21,0.025) 1px,transparent 1px)", backgroundSize:"44px 44px", pointerEvents:"none" }} />
+      <div style={{ position:"relative", width:360, zIndex:1 }}>
+        <div style={{ textAlign:"center", marginBottom:32 }}>
+          <div style={{ width:52, height:52, borderRadius:14, background:"#D19C15", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:24, fontWeight:800, color:"#0a0a09", marginBottom:14 }}>N</div>
+          <div style={{ fontSize:22, fontWeight:700, color:"#D7D2CB", letterSpacing:"-0.02em" }}>{appName}</div>
+          <div style={{ fontSize:12, color:"#7a756e", marginTop:4 }}>Acceso {role} · Solo @blackscale.consulting</div>
+        </div>
+        <div style={{ background:"#11110F", border:"1px solid rgba(215,210,203,0.08)", borderRadius:14, padding:"28px", display:"flex", flexDirection:"column", alignItems:"center", gap:16 }}>
+          {error && <div style={{ width:"100%", padding:"10px 14px", borderRadius:8, background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.2)", color:"#fca5a5", fontSize:12, textAlign:"center" }}>{error}</div>}
+          <div id="g-signin-btn" />
+          {loading && <div style={{ fontSize:12, color:"#7a756e" }}>Verificando acceso...</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MarketingApp() {
   const [authed, setAuthed] = React.useState(!!sessionStorage.getItem("bs-auth"));
   const [navigating, setNavigating] = React.useState(false);
