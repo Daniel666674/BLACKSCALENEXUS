@@ -38,22 +38,41 @@ function mapBrevoToMktContact(b, index) {
   };
 }
 
+function detectChannel(campaign) {
+  const name = (campaign.name || "").toLowerCase();
+  const tags = (campaign.tag || "").toLowerCase();
+  if (name.includes("meta") || name.includes("facebook") || name.includes("instagram") || tags.includes("meta")) return "Meta Ads";
+  if (name.includes("google") || name.includes("adwords") || tags.includes("google")) return "Google Ads";
+  if (name.includes("linkedin") || tags.includes("linkedin")) return "LinkedIn";
+  if (name.includes("whatsapp") || tags.includes("whatsapp")) return "WhatsApp";
+  if (name.includes("sms") || tags.includes("sms")) return "SMS";
+  return "Brevo Email";
+}
+
 function mapBrevoToCampaign(c, i) {
-  const stats = c.statistics?.globalStats || {};
-  const sent  = stats.sent || c.statistics?.campaignStats?.[0]?.sent || 0;
+  const gs   = c.statistics?.globalStats || {};
+  const sent = parseInt(gs.sent || gs.recipients || "0") || 0;
+  const opens   = parseInt(gs.uniqueOpens || gs.opens || "0") || 0;
+  const clicks  = parseInt(gs.uniqueClicks || gs.clicks || "0") || 0;
+  const replied = parseInt(gs.replied || "0") || 0;
+  const unsubscribed = parseInt(gs.unsubscribed || "0") || 0;
+
   return {
     id:            `camp${c.id || i}`,
     name:          c.name || `Campaña ${i+1}`,
+    channel:       detectChannel(c),
     status:        c.status === "sent" ? "completed" : c.status === "scheduled" ? "active" : "draft",
     startDate:     new Date(c.scheduledAt || c.createdAt || Date.now()).getTime(),
-    targetSegment: c.recipients?.listIds?.join(", ") || "Todos",
+    targetSegment: c.recipients?.listIds?.length ? `${c.recipients.listIds.length} lista(s)` : "Todos",
     cadenceType:   "outreach",
-    openRate:      sent > 0 ? Math.round(((stats.uniqueOpens||0)/sent)*100) : 0,
-    clickRate:     sent > 0 ? Math.round(((stats.uniqueClicks||0)/sent)*100) : 0,
-    replyRate:     0,
+    openRate:      sent > 0 ? Math.round((opens / sent) * 100)   : 0,
+    clickRate:     sent > 0 ? Math.round((clicks / sent) * 100)  : 0,
+    replyRate:     sent > 0 ? Math.round((replied / sent) * 100) : 0,
     totalContacts: sent,
-    conversions:   stats.softBounces || 0,
+    conversions:   replied,
+    unsubscribed,
     lastSent:      c.sentDate ? new Date(c.sentDate).getTime() : null,
+    brevoId:       c.id,
   };
 }
 

@@ -133,11 +133,11 @@ function CRMLayout({ children, currentPage, onNavigate }) {
 
         {/* Switch to Nexus */}
         <div style={{ padding: "8px", borderTop: "1px solid var(--crm-border)", flexShrink: 0 }}>
-          <button onClick={() => window.location.href = "Marketing Command Center.html"}
+          <button onClick={() => window.location.href = "/app/marketing.html"}
             style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", width: "100%", borderRadius: 8, border: "1px solid var(--crm-border)", background: "transparent", color: "var(--crm-text-muted)", fontSize: 12, cursor: "pointer", textAlign: "left" }}
             className="crm-nav-item">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
-            Abrir BlackScale Nexus
+            Ir a Módulo de Marketing
           </button>
         </div>
 

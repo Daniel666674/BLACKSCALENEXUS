@@ -53,6 +53,13 @@ function CampaignWall() {
                 <div style={{ fontSize: 11, color: "var(--mkt-text-muted)" }}>{camp.targetSegment}</div>
               </div>
               <StatusBadge status={camp.status} />
+                {camp.channel && (
+                  <span style={{ fontSize:9, fontWeight:700, padding:"2px 7px", borderRadius:20,
+                    background:"rgba(209,156,21,0.1)", color:"var(--mkt-accent)", border:"1px solid rgba(209,156,21,0.2)",
+                    whiteSpace:"nowrap" }}>
+                    {camp.channel}
+                  </span>
+                )}
             </div>
 
             {/* Metrics */}
