@@ -14,10 +14,14 @@ interface MktContextValue {
   campaigns: MktCampaign[];
   notifications: MktNotification[];
   loading: boolean;
+  syncing: boolean;
   updateEngagement: (id: string, status: MktContact["engagementStatus"]) => void;
   passToSales: (id: string) => void;
   addContact: (data: Partial<MktContact>) => void;
   addCampaign: (data: Partial<MktCampaign>) => void;
+  recalculateScores: () => Promise<void>;
+  syncFromBrevo: () => Promise<{ synced: number; total: number }>;
+  refresh: () => void;
 }
 
 const MktContext = createContext<MktContextValue | null>(null);
@@ -27,17 +31,21 @@ export function MktProvider({ children }: { children: React.ReactNode }) {
   const [campaigns, setCampaigns] = useState<MktCampaign[]>([]);
   const [notifications, setNotifications] = useState<MktNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
+    setLoading(true);
     Promise.all([
       fetch("/api/marketing/contacts").then(r => r.json()),
       fetch("/api/marketing/campaigns").then(r => r.json()),
     ]).then(([c, camp]) => {
-      setContacts(c);
-      setCampaigns(camp);
+      setContacts(Array.isArray(c) ? c : []);
+      setCampaigns(Array.isArray(camp) ? camp : []);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const updateEngagement = useCallback((id: string, status: MktContact["engagementStatus"]) => {
     setContacts(prev => prev.map(c => c.id === id ? { ...c, engagementStatus: status } : c));
@@ -50,20 +58,40 @@ export function MktProvider({ children }: { children: React.ReactNode }) {
 
   const passToSales = useCallback((id: string) => {
     const ts = Date.now();
+    const contact = contacts.find(c => c.id === id);
+    if (!contact) return;
+
     setContacts(prev => prev.map(c => c.id === id
       ? { ...c, readyForSales: true, passedToSalesAt: ts }
       : c
     ));
-    const contact = contacts.find(c => c.id === id);
-    if (contact) {
-      setNotifications(prev => [...prev, {
-        id: `n${ts}`, text: `${contact.name} enviado a pipeline de ventas`, time: ts,
-      }]);
-    }
+
+    setNotifications(prev => [...prev, {
+      id: `n${ts}`, text: `${contact.name} enviado a pipeline de ventas`, time: ts,
+    }]);
+
+    // Mark in marketing DB
     fetch(`/api/marketing/contacts/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ready_for_sales: 1, passed_to_sales_at: ts }),
+    });
+
+    // Create real deal in sales pipeline
+    fetch("/api/handoff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: contact.name,
+        company: contact.company,
+        email: contact.email,
+        phone: contact.phone,
+        industry: contact.industry,
+        tier: contact.tier,
+        score: contact.score,
+        marketingNotes: contact.marketingNotes,
+        source: "marketing_handoff",
+      }),
     });
   }, [contacts]);
 
@@ -87,8 +115,42 @@ export function MktProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const recalculateScores = useCallback(async () => {
+    setSyncing(true);
+    try {
+      await fetch("/api/brevo/recalculate-scores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pushToBrevo: true }),
+      });
+      // Reload contacts with new scores
+      const updated = await fetch("/api/marketing/contacts").then(r => r.json());
+      setContacts(Array.isArray(updated) ? updated : []);
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
+
+  const syncFromBrevo = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/brevo/sync", { method: "POST" });
+      const data = await res.json();
+      // Reload after sync
+      const updated = await fetch("/api/marketing/contacts").then(r => r.json());
+      setContacts(Array.isArray(updated) ? updated : []);
+      return { synced: data.synced || 0, total: data.total || 0 };
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
+
   return (
-    <MktContext.Provider value={{ contacts, campaigns, notifications, loading, updateEngagement, passToSales, addContact, addCampaign }}>
+    <MktContext.Provider value={{
+      contacts, campaigns, notifications, loading, syncing,
+      updateEngagement, passToSales, addContact, addCampaign,
+      recalculateScores, syncFromBrevo, refresh: loadData,
+    }}>
       {children}
     </MktContext.Provider>
   );
