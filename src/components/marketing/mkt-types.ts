@@ -18,6 +18,14 @@ export interface MktContact {
   passedToSalesAt: number | null;
   industry: string;
   lastActivity: number;
+  linkedinUrl: string;
+  brevoId: string;
+  jobTitle: string;
+  companySize: string;
+  location: string;
+  emailVerified: boolean;
+  emailBounced: boolean;
+  emailUnsubscribed: boolean;
 }
 
 export interface MktCampaign {
@@ -27,6 +35,8 @@ export interface MktCampaign {
   startDate: number;
   targetSegment: string;
   cadenceType: string;
+  channel: string;
+  brevoCampaignId: string;
   openRate: number;
   clickRate: number;
   replyRate: number;
@@ -35,7 +45,7 @@ export interface MktCampaign {
   lastSent: number | null;
 }
 
-export type MktSection = "engagement" | "campaigns" | "segments" | "attribution" | "handoff";
+export type MktSection = "engagement" | "icp" | "campaigns" | "segments" | "attribution" | "handoff";
 
 export const MKT_SOURCES = ["website", "referido", "redes_sociales", "formulario", "evento", "llamada_fria", "whatsapp"] as const;
 export type MktSource = typeof MKT_SOURCES[number];
@@ -46,6 +56,17 @@ export const MKT_SOURCE_LABELS: Record<string, string> = {
 };
 
 export const MKT_INDUSTRIES = [
+  "Seguros", "SaaS / IT", "Fintech", "Logística", "Servicios Profesionales",
   "Tecnología", "Inmobiliaria", "Consultoría", "E-commerce", "Marketing",
-  "Logística", "Salud", "Alimentos", "Finanzas", "Educación", "Construcción",
+  "Salud", "Alimentos", "Finanzas", "Educación", "Construcción", "Otro",
 ];
+
+export const MKT_CHANNELS = [
+  { id: "brevo_email", label: "Brevo Email" },
+  { id: "linkedin", label: "LinkedIn Ads" },
+  { id: "meta", label: "Meta (Facebook/Instagram)" },
+  { id: "google_ads", label: "Google Ads" },
+  { id: "outbound", label: "Outbound Sequence (Brevo)" },
+] as const;
+
+export type MktChannel = typeof MKT_CHANNELS[number]["id"];
