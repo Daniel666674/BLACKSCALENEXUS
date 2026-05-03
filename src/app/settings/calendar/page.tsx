@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Calendar, CheckCircle2, ExternalLink, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,14 @@ interface CalEvent {
 }
 
 export default function CalendarSettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <CalendarSettingsInner />
+    </Suspense>
+  );
+}
+
+function CalendarSettingsInner() {
   const searchParams = useSearchParams();
   const connected = searchParams.get("connected") === "true";
   const authError = searchParams.get("error");

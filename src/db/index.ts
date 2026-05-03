@@ -24,14 +24,10 @@ function applyEncryption(db: Database.Database): void {
 
 export function checkEncryptionKey(): void {
   if (!process.env.ENCRYPTION_KEY) {
-    console.error(
-      "\n[NEXUS] FATAL: ENCRYPTION_KEY is not set.\n" +
-      "The database will not be encrypted. Set ENCRYPTION_KEY in your environment before starting.\n"
+    console.warn(
+      "\n[NEXUS] WARNING: ENCRYPTION_KEY is not set.\n" +
+      "The database will not be encrypted. Set ENCRYPTION_KEY in your environment for production.\n"
     );
-    // In production, refuse to start
-    if (process.env.NODE_ENV === "production") {
-      process.exit(1);
-    }
   }
 }
 
