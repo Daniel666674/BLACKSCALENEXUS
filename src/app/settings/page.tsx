@@ -4,73 +4,152 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import {
-  Briefcase,
-  Kanban,
-  Terminal,
-  Zap,
-  Webhook,
-  Bell,
-  Copy,
+  Briefcase, Kanban, Webhook, Bell, Copy, User, Key, LogOut,
+  RefreshCw, CheckCircle, AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationToggle } from "@/components/shared/NotificationToggle";
+import { useSession, signOut } from "next-auth/react";
 import type { CrmConfig } from "@/types";
 
 export default function SettingsPage() {
+  const { data: session } = useSession();
   const [config, setConfig] = useState<CrmConfig | null>(null);
   const [stages, setStages] = useState<
     Array<{ id: string; name: string; color: string; order: number }>
   >([]);
 
-  useEffect(() => {
-    fetch("/crm-config.json")
-      .then((r) => r.json())
-      .then(setConfig)
-      .catch(() => {});
+  // API keys state
+  const [brevoKey, setBrevoKey] = useState("");
+  const [savingBrevo, setSavingBrevo] = useState(false);
+  const [brevoStatus, setBrevoStatus] = useState<"idle" | "ok" | "error">("idle");
 
-    fetch("/api/pipeline")
-      .then((r) => r.json())
-      .then(setStages);
+  // Brevo sync state
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<null | { synced: number; total: number }>(null);
+  const [recalculating, setRecalculating] = useState(false);
+  const [recalcResult, setRecalcResult] = useState<null | Record<string, unknown>>(null);
+
+  const userName = session?.user?.name || "Usuario";
+  const userEmail = session?.user?.email || "";
+  const userImage = session?.user?.image;
+  const userRole = (session?.user as { role?: string })?.role || "sales";
+  const userInitials = userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+
+  useEffect(() => {
+    fetch("/crm-config.json").then(r => r.json()).then(setConfig).catch(() => {});
+    fetch("/api/pipeline").then(r => r.json()).then(setStages).catch(() => {});
   }, []);
 
-  const commands = [
-    {
-      name: "/setup",
-      description: "Configurar CRM para tu negocio",
-    },
-    {
-      name: "/add-lead",
-      description: "Agregar un lead de forma conversacional",
-    },
-    {
-      name: "/analyze-pipeline",
-      description: "Analizar pipeline y obtener recomendaciones",
-    },
-    {
-      name: "/daily-briefing",
-      description: "Resumen diario de ventas",
-    },
-    {
-      name: "/import-contacts",
-      description: "Importar contactos desde CSV",
-    },
-    {
-      name: "/customize",
-      description: "Re-personalizar tu CRM",
-    },
-  ];
+  const handleSaveBrevo = async () => {
+    if (!brevoKey.trim()) return;
+    setSavingBrevo(true);
+    // Store in settings API (or just show instructions since env var is needed)
+    try {
+      // Test the key
+      const res = await fetch("https://api.brevo.com/v3/account", {
+        headers: { "api-key": brevoKey },
+      });
+      if (res.ok) {
+        setBrevoStatus("ok");
+        toast.success("Brevo API key válida. Actualiza BREVO_API_KEY en el .env de tu servidor.");
+      } else {
+        setBrevoStatus("error");
+        toast.error("Brevo API key inválida.");
+      }
+    } catch {
+      setBrevoStatus("error");
+      toast.error("No se pudo verificar la key.");
+    } finally {
+      setSavingBrevo(false);
+    }
+  };
+
+  const handleSyncBrevo = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/brevo/sync", { method: "POST" });
+      const data = await res.json();
+      if (data.error) { toast.error(data.error); return; }
+      setSyncResult({ synced: data.synced, total: data.total });
+      toast.success(`${data.synced} contactos sincronizados desde Brevo`);
+    } catch {
+      toast.error("Error al sincronizar con Brevo");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleRecalculate = async () => {
+    setRecalculating(true);
+    setRecalcResult(null);
+    try {
+      const res = await fetch("/api/brevo/recalculate-scores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pushToBrevo: true }),
+      });
+      const data = await res.json();
+      if (data.error) { toast.error(data.error); return; }
+      setRecalcResult(data);
+      toast.success(`Scores recalculados: ${data.processed} contactos`);
+    } catch {
+      toast.error("Error al recalcular scores");
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
+  const roleBadge = userRole === "superadmin" ? "Admin" : userRole === "marketing" ? "Marketing" : "Sales";
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Configuracion</h1>
-        <p className="text-muted-foreground">
-          Configuracion del CRM y comandos disponibles
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">Configuración</h1>
+        <p className="text-muted-foreground">Perfil, integraciones y configuración del CRM</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* User Profile */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Perfil
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-4">
+              {userImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={userImage} alt={userName} className="w-14 h-14 rounded-full object-cover" />
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold text-lg">
+                  {userInitials}
+                </div>
+              )}
+              <div>
+                <div className="font-semibold text-base">{userName}</div>
+                <div className="text-sm text-muted-foreground">{userEmail}</div>
+                <Badge variant="outline" className="text-xs mt-1">{roleBadge}</Badge>
+              </div>
+            </div>
+            <Separator />
+            <Button
+              variant="destructive"
+              size="sm"
+              className="w-full"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Cerrar sesión
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* Business config */}
         <Card>
           <CardHeader>
@@ -97,9 +176,7 @@ export default function SettingsPage() {
                 <Separator />
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Idioma</span>
-                  <span>
-                    {config.preferences.language === "es" ? "Espanol" : "Ingles"}
-                  </span>
+                  <span>{config.preferences.language === "es" ? "Español" : "Inglés"}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Tema</span>
@@ -108,14 +185,82 @@ export default function SettingsPage() {
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Ejecuta <code>/setup</code> en Claude Code para configurar tu
-                negocio.
+                Ejecuta <code className="bg-muted px-1 rounded">/setup</code> en Claude Code para configurar.
               </p>
             )}
           </CardContent>
         </Card>
 
-        {/* Pipeline stages */}
+        {/* Brevo Integration */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Key className="h-4 w-4" />
+              Integración Brevo
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Verifica tu API key de Brevo y sincroniza los 796 contactos. El score ICP se calcula automáticamente.
+            </p>
+
+            <div className="flex gap-2">
+              <input
+                type="password"
+                placeholder="xkeysib-..."
+                value={brevoKey}
+                onChange={e => setBrevoKey(e.target.value)}
+                className="flex-1 px-3 py-2 text-sm rounded-md border bg-muted/50 outline-none focus:ring-1 ring-primary"
+              />
+              <Button size="sm" onClick={handleSaveBrevo} disabled={savingBrevo || !brevoKey.trim()}>
+                {savingBrevo ? <RefreshCw className="w-3 h-3 animate-spin" /> : "Verificar"}
+              </Button>
+              {brevoStatus === "ok" && <CheckCircle className="w-5 h-5 text-green-500 self-center" />}
+              {brevoStatus === "error" && <AlertCircle className="w-5 h-5 text-red-500 self-center" />}
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Para activar la key en producción, actualiza <code className="bg-muted px-1 rounded">BREVO_API_KEY</code> en el archivo <code className="bg-muted px-1 rounded">.env.local</code> del servidor y reinicia PM2.
+            </p>
+
+            <Separator />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold">Sincronizar contactos</h4>
+                <p className="text-xs text-muted-foreground">
+                  Importa todos los contactos de Brevo al módulo de Marketing con sus atributos SCORE, TIER e INDUSTRY.
+                </p>
+                <Button size="sm" variant="outline" onClick={handleSyncBrevo} disabled={syncing} className="w-full">
+                  {syncing ? <><RefreshCw className="w-3 h-3 mr-2 animate-spin" />Sincronizando…</> : "Sincronizar desde Brevo"}
+                </Button>
+                {syncResult && (
+                  <p className="text-xs text-green-600">✓ {syncResult.synced} de {syncResult.total} contactos sincronizados</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold">Recalcular ICP Scores</h4>
+                <p className="text-xs text-muted-foreground">
+                  Aplica el algoritmo completo (rol, industria, tamaño empresa, engagement) a todos los contactos y actualiza TIER en Brevo.
+                </p>
+                <Button size="sm" variant="outline" onClick={handleRecalculate} disabled={recalculating} className="w-full">
+                  {recalculating ? <><RefreshCw className="w-3 h-3 mr-2 animate-spin" />Calculando…</> : "Recalcular Scores ICP"}
+                </Button>
+                {recalcResult && (
+                  <p className="text-xs text-green-600">
+                    ✓ {String(recalcResult.processed)} procesados —
+                    T1: {String((recalcResult.tierBreakdown as Record<string, unknown>)?.tier1 || 0)},
+                    T2: {String((recalcResult.tierBreakdown as Record<string, unknown>)?.tier2 || 0)},
+                    T3: {String((recalcResult.tierBreakdown as Record<string, unknown>)?.tier3 || 0)}
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Pipeline Stages */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -126,67 +271,45 @@ export default function SettingsPage() {
           <CardContent>
             <div className="space-y-2">
               {stages.map((stage) => (
-                <div
-                  key={stage.id}
-                  className="flex items-center gap-3 p-2 rounded-lg bg-muted/50"
-                >
-                  <div
-                    className="w-3 h-3 rounded-full shrink-0"
-                    style={{ backgroundColor: stage.color }}
-                  />
+                <div key={stage.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
+                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: stage.color }} />
                   <span className="text-sm flex-1">{stage.name}</span>
-                  <Badge variant="outline" className="text-xs">
-                    #{stage.order}
-                  </Badge>
+                  <Badge variant="outline" className="text-xs">#{stage.order}</Badge>
                 </div>
               ))}
             </div>
             <p className="text-xs text-muted-foreground mt-3">
-              Usa <code>/customize</code> en Claude Code para modificar las
-              etapas.
+              Usa <code className="bg-muted px-1 rounded">/customize</code> en Claude Code para modificar las etapas.
             </p>
           </CardContent>
         </Card>
 
         {/* Webhook config */}
-        <Card className="lg:col-span-2">
+        <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Webhook className="h-4 w-4" />
-              Webhook
+              Webhook de leads
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Recibe leads automaticamente desde formularios, landing pages, o cualquier herramienta que soporte webhooks.
+              Recibe leads automáticamente desde Typeform, Tally, formularios web, etc.
             </p>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-sm bg-muted p-2 rounded font-mono truncate">
-                  POST {typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}/api/webhook
-                </code>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(
-                      `${window.location.origin}/api/webhook`
-                    );
-                    toast.success("URL copiada");
-                  }}
-                  className="p-2 rounded hover:bg-muted cursor-pointer"
-                  title="Copiar URL"
-                >
-                  <Copy className="h-4 w-4 text-muted-foreground" />
-                </button>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50 text-xs font-mono">
-                <p className="text-muted-foreground mb-1">Ejemplo:</p>
-                <p>curl -X POST {typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}/api/webhook \</p>
-                <p className="pl-4">-H &quot;Content-Type: application/json&quot; \</p>
-                <p className="pl-4">-d &apos;{`{"name":"Juan","email":"j@test.com","phone":"555-1234"}`}&apos;</p>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Soporta campos en espanol e ingles: name/nombre, email/correo, phone/telefono, company/empresa, notes/notas
-              </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs bg-muted p-2 rounded font-mono truncate">
+                POST {typeof window !== "undefined" ? window.location.origin : "https://crm.blackscale.consulting"}/api/webhook
+              </code>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/api/webhook`);
+                  toast.success("URL copiada");
+                }}
+                className="p-2 rounded hover:bg-muted cursor-pointer"
+                title="Copiar URL"
+              >
+                <Copy className="h-4 w-4 text-muted-foreground" />
+              </button>
             </div>
           </CardContent>
         </Card>
@@ -202,41 +325,8 @@ export default function SettingsPage() {
           <CardContent className="space-y-3">
             <NotificationToggle />
             <p className="text-xs text-muted-foreground">
-              Las notificaciones te avisan cuando tienes seguimientos vencidos. Se verifican cada 5 minutos mientras el CRM esta abierto.
+              Las notificaciones te avisan cuando tienes seguimientos vencidos. Se verifican cada 5 minutos.
             </p>
-          </CardContent>
-        </Card>
-
-        {/* Claude Code commands */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Terminal className="h-4 w-4" />
-              Comandos de Claude Code
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
-              Estos comandos estan disponibles cuando abres el proyecto en Claude
-              Code. Escribe el comando directamente en el terminal de Claude
-              Code.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {commands.map((cmd) => (
-                <div
-                  key={cmd.name}
-                  className="flex items-start gap-3 p-3 rounded-lg border"
-                >
-                  <Zap className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                  <div>
-                    <code className="text-sm font-semibold">{cmd.name}</code>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {cmd.description}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
           </CardContent>
         </Card>
       </div>

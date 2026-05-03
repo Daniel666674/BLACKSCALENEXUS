@@ -10,7 +10,11 @@ export async function PATCH(req: Request, { params }: Params) {
     const { id } = await params;
     const body = await req.json();
 
-    const allowed = ["engagement_status", "ready_for_sales", "passed_to_sales_at", "score"] as const;
+    const allowed = [
+      "engagement_status", "ready_for_sales", "passed_to_sales_at", "score",
+      "tier", "temperature", "marketing_notes", "industry", "linkedin_url",
+      "job_title", "company_size", "location",
+    ] as const;
     const sets: string[] = [];
     const vals: unknown[] = [];
 

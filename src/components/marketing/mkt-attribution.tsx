@@ -2,7 +2,6 @@
 
 import React from "react";
 import { useMkt } from "./mkt-provider";
-import { mktFormatCOP } from "./mkt-utils";
 import { MKT_SOURCES, MKT_SOURCE_LABELS } from "./mkt-types";
 
 export function MktAttributionDashboard() {
@@ -14,8 +13,8 @@ export function MktAttributionDashboard() {
     const hot = cs.filter(c => c.engagementStatus === "hot").length;
     const deals = cs.filter(c => c.passedToSalesAt).length;
     const engaged = cs.filter(c => c.engagementStatus === "hot" || c.engagementStatus === "warm").length;
-    const pipelineValue = cs.reduce((sum, c) =>
-      sum + (c.passedToSalesAt ? (c.tier === 1 ? 25000000 : c.tier === 2 ? 12000000 : 5000000) : 0), 0);
+    // Pipeline value based on handoff count only — actual deal values live in sales DB
+    const pipelineValue = cs.filter(c => c.passedToSalesAt).length;
     const conversionRate = total > 0 ? Math.round((deals / total) * 100) : 0;
     return { src, label: MKT_SOURCE_LABELS[src], total, hot, deals, engaged, pipelineValue, conversionRate };
   }).filter(s => s.total > 0).sort((a, b) => b.conversionRate - a.conversionRate);
@@ -74,7 +73,7 @@ export function MktAttributionDashboard() {
 
             <div style={{ textAlign: "right", width: 120 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "var(--mkt-accent)" }}>
-                {mktFormatCOP(s.pipelineValue)}
+                {s.pipelineValue} deals
               </div>
               <div style={{ fontSize: 11, color: "var(--mkt-text-muted)" }}>{s.conversionRate}% conversión</div>
             </div>
