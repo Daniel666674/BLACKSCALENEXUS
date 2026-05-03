@@ -5,12 +5,7 @@ function CRMLayout({ children, currentPage, onNavigate }) {
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [bellOpen, setBellOpen] = React.useState(false);
-  const [notifications, setNotifications] = React.useState([
-    { id: "n1", read: false, msg: "Julian envió 3 handoffs nuevos a ventas", type: "handoff", time: Date.now() - 2*3600000 },
-    { id: "n2", read: false, msg: "FoodTech CO: renovación en 10 días", type: "renewal", time: Date.now() - 5*3600000 },
-    { id: "n3", read: false, msg: "Deal 'Agencia Creativa' sin actividad hace 8 días", type: "risk", time: Date.now() - 24*3600000 },
-    { id: "n4", read: true, msg: "Inmobiliaria Rodríguez: renovación en 25 días", type: "renewal", time: Date.now() - 48*3600000 },
-  ]);
+  const [notifications, setNotifications] = React.useState([]);
 
   const unread = notifications.filter(n => !n.read).length;
   const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })));

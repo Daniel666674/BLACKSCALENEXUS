@@ -3,145 +3,133 @@
 
 // ── Seed data ─────────────────────────────────────────────────────────────────
 
-const MONTHLY_REVENUE = [
-  { label: "Oct", value: 38000000, target: 60000000 },
-  { label: "Nov", value: 55000000, target: 65000000 },
-  { label: "Dic", value: 47000000, target: 70000000 },
-  { label: "Ene", value: 72000000, target: 75000000 },
-  { label: "Feb", value: 68000000, target: 80000000 },
-  { label: "Mar", value: 91000000, target: 85000000 },
-  { label: "Abr", value: 74000000, target: 90000000 },
-];
-
+// Revenue data is computed from real CRM won deals — no hardcoded historical data
+const MONTHLY_REVENUE = []; // kept for shape compatibility; populated at runtime
 const WEEK_LABELS = ["Semana -3", "Semana -2", "Semana -1", "Esta semana"];
-
-const ACTIVITY_WEEKS = {
-  calls:     [8, 6, 10, 12],
-  emails:    [14, 18, 12, 20],
-  meetings:  [3, 5, 4, 6],
-  proposals: [1, 2, 3, 2],
-};
 
 // ── REVENUE SCREEN ────────────────────────────────────────────────────────────
 
 function RevenueScreen() {
   const crm = useCRM();
   const now = Date.now();
+  const PALETTE = ["var(--crm-accent)", "#551C25", "#3b82f6", "#a855f7", "#22c55e", "#7a756e"];
 
-  // Won deals from CRM
   const wonDeals = crm.deals.filter(d => crm.stages.find(s => s.id === d.stageId)?.isWon);
-
-  // Projected 90-day: pipeline value * win rate
   const activeDeals = crm.deals.filter(d => {
     const s = crm.stages.find(x => x.id === d.stageId);
     return s && !s.isWon && !s.isLost;
   });
-  const winRate = crm.deals.length > 0 ? wonDeals.length / crm.deals.length : 0.3;
-  const weightedPipeline = activeDeals.reduce((s, d) => s + d.value * (d.probability / 100), 0);
-  const projected90d = Math.round(weightedPipeline + (MONTHLY_REVENUE[MONTHLY_REVENUE.length - 1].value * 3 * 0.9));
+  const winRate = crm.deals.length > 0 ? wonDeals.length / crm.deals.length : 0;
+  const weightedPipeline = activeDeals.reduce((s, d) => s + (d.value || 0) * ((d.probability || 0) / 100), 0);
+  const projected90d = Math.round(weightedPipeline * 3 * (winRate || 0.3));
 
-  // MRR bar chart data
-  const barData = MONTHLY_REVENUE.map(m => ({
-    label: m.label,
-    value: m.value,
-    color: m.value >= m.target ? "#22c55e" : "var(--crm-accent)",
-  }));
+  // MRR from won deals grouped by calendar month (last 6 months)
+  const monthLabels = [];
+  const monthData = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() - i);
+    const label = d.toLocaleDateString("es-CO", { month: "short" });
+    const ms = d.getMonth(), yr = d.getFullYear();
+    const rev = wonDeals.filter(deal => {
+      const cd = new Date(deal.createdAt || 0);
+      return cd.getMonth() === ms && cd.getFullYear() === yr;
+    }).reduce((s, deal) => s + (deal.value || 0), 0);
+    monthLabels.push(label);
+    monthData.push(rev);
+  }
+  const monthlyTarget = wonDeals.length > 0
+    ? Math.round(wonDeals.reduce((s, d) => s + (d.value || 0), 0) / Math.max(1, wonDeals.length) * 3)
+    : 0;
 
-  // Target line data
-  const lineData = MONTHLY_REVENUE.map(m => ({ label: m.label, value: m.target, actual: m.value }));
-
-  // Client concentration (clients from g3 seed)
-  const totalRev = MONTHLY_REVENUE[MONTHLY_REVENUE.length - 1].value;
-  const concentration = [
-    { label: "Agencia Creativa", value: 22000000, color: "var(--crm-accent)" },
-    { label: "Martínez Cons.", value: 18000000, color: "#551C25" },
-    { label: "TechStartup", value: 16000000, color: "#3b82f6" },
-    { label: "Otros", value: 18000000, color: "#7a756e" },
-  ];
-  const topPct = Math.round((concentration[0].value / totalRev) * 100);
-  const concentrated = topPct > 40;
-
-  // Compute max for dual bar/line chart
   const W = 500, H_CHART = 160, PAD = 24;
-  const maxVal = Math.max(...MONTHLY_REVENUE.map(m => Math.max(m.value, m.target)), 1);
-  const segW = W / MONTHLY_REVENUE.length;
+  const maxVal = Math.max(...monthData, monthlyTarget || 1, 1);
+  const segW = monthData.length > 0 ? W / monthData.length : W;
   const bw = segW * 0.5;
+
+  // Client concentration from won deals
+  const wonByContact = {};
+  wonDeals.forEach(d => {
+    const contact = crm.contacts.find(c => c.id === d.contactId);
+    const key = contact?.company || contact?.name || d.title || "—";
+    wonByContact[key] = (wonByContact[key] || 0) + (d.value || 0);
+  });
+  const totalRev = Object.values(wonByContact).reduce((s, v) => s + v, 0);
+  const concEntries = Object.entries(wonByContact).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  const othersRev = totalRev - concEntries.reduce((s, [, v]) => s + v, 0);
+  const concentration = concEntries.map(([label, value], i) => ({ label, value, color: PALETTE[i] }));
+  if (othersRev > 0) concentration.push({ label: "Otros", value: othersRev, color: "#7a756e" });
+  const topPct = concentration.length > 0 ? Math.round((concentration[0].value / totalRev) * 100) : 0;
+  const concentrated = topPct > 40;
 
   return (
     <div>
       <SectionHeader title="Revenue Dashboard" subtitle="MRR, targets y concentración de clientes · en COP" />
 
-      {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
-        <StatCard label="MRR este mes" value={formatCRM(MONTHLY_REVENUE[MONTHLY_REVENUE.length - 1].value)} accent="var(--crm-accent)" />
-        <StatCard label="Target este mes" value={formatCRM(MONTHLY_REVENUE[MONTHLY_REVENUE.length - 1].target)} />
+        <StatCard label="Pipeline activo" value={formatCRM(activeDeals.reduce((s,d) => s+(d.value||0), 0))} accent="var(--crm-accent)" />
+        <StatCard label="Deals ganados" value={wonDeals.length} />
         <StatCard label="Win rate" value={`${Math.round(winRate * 100)}%`} accent={winRate >= 0.4 ? "#22c55e" : "#f59e0b"} />
-        <StatCard label="Proyección 90d" value={formatCRM(projected90d)} sub="pipeline × win rate" accent="#3b82f6" />
+        <StatCard label="Proyección 90d" value={formatCRM(projected90d)} sub="pipeline ponderado × 3" accent="#3b82f6" />
       </div>
 
-      {/* Dual chart: bars (actual) + dashed line (target) */}
       <div className="crm-card" style={{ borderRadius: 10, padding: 20, marginBottom: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Revenue vs Target</div>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Revenue por mes (deals ganados)</div>
         <div style={{ display: "flex", gap: 16, fontSize: 11, color: "var(--crm-text-muted)", marginBottom: 12 }}>
-          <span><span style={{ color: "var(--crm-accent)" }}>■</span> Revenue real</span>
-          <span><span style={{ color: "#551C25" }}>- -</span> Target mensual</span>
+          <span><span style={{ color: "var(--crm-accent)" }}>■</span> Valor deals ganados</span>
         </div>
-        <svg width="100%" height={H_CHART + PAD} viewBox={`0 0 ${W} ${H_CHART + PAD}`} preserveAspectRatio="none">
-          {MONTHLY_REVENUE.map((m, i) => {
-            const bh = Math.max(3, (m.value / maxVal) * H_CHART);
-            const x = i * segW + (segW - bw) / 2;
-            const y = H_CHART - bh;
-            const col = m.value >= m.target ? "#22c55e" : "var(--crm-accent)";
-            return (
-              <g key={i}>
-                <rect x={x} y={y} width={bw} height={bh} rx={3} fill={col} opacity={0.8} />
-                <text x={x + bw / 2} y={H_CHART + 14} textAnchor="middle" fontSize={9} fill="var(--crm-text-muted)" fontFamily="Poppins,sans-serif">{m.label}</text>
-              </g>
-            );
-          })}
-          {/* Target dashed line */}
-          {MONTHLY_REVENUE.map((m, i) => {
-            if (i === 0) return null;
-            const prev = MONTHLY_REVENUE[i - 1];
-            const x1 = (i - 1) * segW + segW / 2, y1 = H_CHART - (prev.target / maxVal) * H_CHART;
-            const x2 = i * segW + segW / 2, y2 = H_CHART - (m.target / maxVal) * H_CHART;
-            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#551C25" strokeWidth={1.5} strokeDasharray="4,3" opacity={0.8} />;
-          })}
-        </svg>
+        {monthData.every(v => v === 0)
+          ? <div style={{ textAlign: "center", padding: "32px 0", color: "var(--crm-text-muted)", fontSize: 13 }}>Sin deals ganados registrados aún</div>
+          : <svg width="100%" height={H_CHART + PAD} viewBox={`0 0 ${W} ${H_CHART + PAD}`} preserveAspectRatio="none">
+              {monthData.map((val, i) => {
+                const bh = Math.max(3, (val / maxVal) * H_CHART);
+                const x = i * segW + (segW - bw) / 2;
+                const y = H_CHART - bh;
+                return (
+                  <g key={i}>
+                    <rect x={x} y={y} width={bw} height={bh} rx={4} fill="var(--crm-accent)" opacity={0.85} />
+                    <text x={x + bw / 2} y={H_CHART + 14} textAnchor="middle" fontSize={9} fill="var(--crm-text-muted)" fontFamily="Poppins,sans-serif">{monthLabels[i]}</text>
+                  </g>
+                );
+              })}
+            </svg>
+        }
       </div>
 
-      {/* Concentration */}
       <div className="crm-card" style={{ borderRadius: 10, padding: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700 }}>Concentración de clientes</div>
-          {concentrated && (
+          {concentrated && concentration.length > 0 && (
             <div style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: "rgba(239,68,68,0.1)", color: "#ef4444", fontWeight: 600 }}>
               ⚠ {concentration[0].label} representa {topPct}% del revenue
             </div>
           )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <SVGDonut data={concentration} size={110} thick={22} />
-          <div style={{ flex: 1 }}>
-            {concentration.map((c, i) => {
-              const pct = Math.round((c.value / totalRev) * 100);
-              return (
-                <div key={i} style={{ marginBottom: 8 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: 2, background: c.color }} />
-                      <span>{c.label}</span>
+        {concentration.length === 0
+          ? <div style={{ textAlign: "center", padding: "24px 0", color: "var(--crm-text-muted)", fontSize: 13 }}>Sin deals ganados para calcular concentración</div>
+          : <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+              <SVGDonut data={concentration} size={110} thick={22} />
+              <div style={{ flex: 1 }}>
+                {concentration.map((c, i) => {
+                  const pct = Math.round((c.value / totalRev) * 100);
+                  return (
+                    <div key={i} style={{ marginBottom: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: 2, background: c.color }} />
+                          <span>{c.label}</span>
+                        </div>
+                        <span style={{ fontWeight: 600, color: i === 0 && concentrated ? "#ef4444" : "var(--crm-text)" }}>{pct}%</span>
+                      </div>
+                      <div style={{ height: 4, borderRadius: 2, background: "rgba(255,255,255,0.06)" }}>
+                        <div style={{ width: `${pct}%`, height: "100%", borderRadius: 2, background: c.color, transition: "width 0.5s" }} />
+                      </div>
                     </div>
-                    <span style={{ fontWeight: 600, color: i === 0 && concentrated ? "#ef4444" : "var(--crm-text)" }}>{pct}%</span>
-                  </div>
-                  <div style={{ height: 4, borderRadius: 2, background: "rgba(255,255,255,0.06)" }}>
-                    <div style={{ width: `${pct}%`, height: "100%", borderRadius: 2, background: c.color, transition: "width 0.5s" }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                  );
+                })}
+              </div>
+            </div>
+        }
       </div>
     </div>
   );
@@ -155,13 +143,20 @@ function ActivityMetricsScreen() {
   const thisWeek = crm.activities.filter(a => a.completedAt && (Date.now() - a.completedAt) < 7*86400000);
   const prevWeek = crm.activities.filter(a => a.completedAt && (Date.now() - a.completedAt) >= 7*86400000 && (Date.now() - a.completedAt) < 14*86400000);
 
+  const weekBucket = (weeksAgo) => {
+    const start = now - (weeksAgo + 1) * 7 * 86400000;
+    const end   = now - weeksAgo * 7 * 86400000;
+    return crm.activities.filter(a => a.completedAt && a.completedAt >= start && a.completedAt < end);
+  };
+  const w3 = weekBucket(3), w2 = weekBucket(2), w1 = weekBucket(1), w0 = weekBucket(0);
+
   const countType = (acts, type) => type === "all" ? acts.length : acts.filter(a => a.type === type).length;
 
   const metrics = [
-    { label: "Llamadas", type: "call", icon: "📞", weeks: ACTIVITY_WEEKS.calls, color: "#3b82f6" },
-    { label: "Emails", type: "email", icon: "✉️", weeks: ACTIVITY_WEEKS.emails, color: "var(--crm-accent)" },
-    { label: "Reuniones", type: "meeting", icon: "👥", weeks: ACTIVITY_WEEKS.meetings, color: "#22c55e" },
-    { label: "Propuestas", type: "proposal", icon: "📄", weeks: ACTIVITY_WEEKS.proposals, color: "#a855f7" },
+    { label: "Llamadas",   type: "call",   icon: "📞", weeks: [countType(w3,"call"),   countType(w2,"call"),   countType(w1,"call"),   countType(w0,"call")],   color: "#3b82f6" },
+    { label: "Emails",     type: "email",  icon: "✉️", weeks: [countType(w3,"email"),  countType(w2,"email"),  countType(w1,"email"),  countType(w0,"email")],  color: "var(--crm-accent)" },
+    { label: "Reuniones",  type: "meeting",icon: "👥", weeks: [countType(w3,"meeting"),countType(w2,"meeting"),countType(w1,"meeting"),countType(w0,"meeting")], color: "#22c55e" },
+    { label: "Seguimientos",type:"follow_up",icon:"⏰", weeks: [countType(w3,"follow_up"),countType(w2,"follow_up"),countType(w1,"follow_up"),countType(w0,"follow_up")], color: "#a855f7" },
   ];
 
   const thisWeekTotal = metrics.reduce((s, m) => s + m.weeks[3], 0);
@@ -249,9 +244,13 @@ function PipelineHealthScreen() {
     return s && !s.isWon && !s.isLost;
   });
 
-  // 1. Coverage ratio: weighted pipeline / monthly target
-  const weightedPipeline = activeDeals.reduce((s, d) => s + d.value * (d.probability / 100), 0);
-  const coverageRatio = Math.min(2, weightedPipeline / 90000000);
+  // 1. Coverage ratio: weighted pipeline / monthly target (avg won deal value × 3)
+  const wonDealsH = crm.deals.filter(d => crm.stages.find(s => s.id === d.stageId)?.isWon);
+  const healthMonthlyTarget = wonDealsH.length > 0
+    ? Math.round(wonDealsH.reduce((s, d) => s + (d.value || 0), 0) / Math.max(1, wonDealsH.length) * 3)
+    : 1;
+  const weightedPipeline = activeDeals.reduce((s, d) => s + (d.value||0) * ((d.probability||0) / 100), 0);
+  const coverageRatio = Math.min(2, weightedPipeline / healthMonthlyTarget);
   const coverageScore = Math.round(coverageRatio * 30); // max 30 pts
 
   // 2. Avg days per stage (lower is better, relative)
@@ -281,7 +280,7 @@ function PipelineHealthScreen() {
   const scoreLabel = totalScore >= 70 ? "Pipeline Saludable" : totalScore >= 40 ? "Atención Requerida" : "Pipeline en Riesgo";
 
   const factors = [
-    { label: "Coverage ratio (pipeline ponderado vs meta)", score: coverageScore, max: 30, detail: `${formatCRM(weightedPipeline)} ponderado vs ${formatCRM(90000000)} meta`, tip: coverageRatio < 1 ? "Pipeline insuficiente para alcanzar meta del mes" : "Cobertura buena" },
+    { label: "Coverage ratio (pipeline ponderado vs meta)", score: coverageScore, max: 30, detail: `${formatCRM(weightedPipeline)} ponderado vs ${formatCRM(healthMonthlyTarget)} meta`, tip: coverageRatio < 1 ? "Pipeline insuficiente para alcanzar meta del mes" : "Cobertura buena" },
     { label: "Velocidad promedio por etapa", score: stageScore, max: 25, detail: `${avgDays.toFixed(1)} días promedio en etapa`, tip: avgDays > 20 ? "Deals moviéndose lento — revisar bloqueos" : "Buen ritmo de avance" },
     { label: "Deals estancados (>14d sin actividad)", score: stalledScore, max: 25, detail: `${stalledCount} deal${stalledCount !== 1 ? "s" : ""} estancado${stalledCount !== 1 ? "s" : ""}`, tip: stalledCount > 0 ? `Registrar actividad en ${stalledCount} deal${stalledCount !== 1 ? "s" : ""}` : "Todos los deals tienen actividad reciente" },
     { label: "Concentración de contactos", score: singleScore, max: 20, detail: `${singleContactDeals} deal${singleContactDeals !== 1 ? "s" : ""} con contacto único`, tip: "Busca múltiples contactos por empresa para reducir riesgo" },

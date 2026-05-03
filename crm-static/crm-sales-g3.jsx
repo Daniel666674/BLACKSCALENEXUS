@@ -3,28 +3,27 @@
 
 // ── Seed data ─────────────────────────────────────────────────────────────────
 
-const CLIENTS_SEED = [
-  { id: "cl1", dealId: "d3", name: "Laura Hernández", company: "Agencia Creativa", contractValue: 45000000, startDate: Date.now() - 60*86400000, endDate: Date.now() + 305*86400000, healthScore: 8, renewalStage: "Saludable", openDeliverables: 2, lastInteraction: Date.now() - 3*86400000 },
-  { id: "cl2", dealId: "d2", name: "Carlos Rodríguez", company: "Inmobiliaria Rodríguez", contractValue: 18000000, startDate: Date.now() - 200*86400000, endDate: Date.now() + 25*86400000, healthScore: 5, renewalStage: "Conversación de Renovación", openDeliverables: 4, lastInteraction: Date.now() - 10*86400000 },
-  { id: "cl3", dealId: "d1", name: "María García", company: "TechStartup MX", contractValue: 25000000, startDate: Date.now() - 120*86400000, endDate: Date.now() + 50*86400000, healthScore: 7, renewalStage: "Check-in Pendiente", openDeliverables: 1, lastInteraction: Date.now() - 7*86400000 },
-  { id: "cl4", dealId: "d5", name: "Ana Martínez", company: "Martínez Consultores", contractValue: 32000000, startDate: Date.now() - 30*86400000, endDate: Date.now() + 335*86400000, healthScore: 9, renewalStage: "Renovado", openDeliverables: 0, lastInteraction: Date.now() - 1*86400000 },
-  { id: "cl5", dealId: null, name: "FoodTech CO", company: "FoodTech CO", contractValue: 19000000, startDate: Date.now() - 150*86400000, endDate: Date.now() + 10*86400000, healthScore: 4, renewalStage: "En Riesgo", openDeliverables: 6, lastInteraction: Date.now() - 20*86400000 },
-];
+// Clients and deliverables are derived from real CRM won deals — no seed data
+const CLIENTS_SEED = [];
+const DELIVERABLES_SEED = [];
 
-const DELIVERABLES_SEED = [
-  { id: "dv1", clientId: "cl1", title: "Informe mensual de métricas CRM", client: "Agencia Creativa", status: "En progreso", dueDate: Date.now() + 3*86400000, owner: "Daniel" },
-  { id: "dv2", clientId: "cl1", title: "Setup campaña email Q2", client: "Agencia Creativa", status: "Pendiente", dueDate: Date.now() + 10*86400000, owner: "Julian" },
-  { id: "dv3", clientId: "cl2", title: "Migración de datos históricos", client: "Inmobiliaria Rodríguez", status: "Vencido", dueDate: Date.now() - 5*86400000, owner: "Daniel" },
-  { id: "dv4", clientId: "cl2", title: "Capacitación equipo comercial", client: "Inmobiliaria Rodríguez", status: "Pendiente", dueDate: Date.now() + 1*86400000, owner: "Daniel" },
-  { id: "dv5", clientId: "cl2", title: "Integración WhatsApp Business", client: "Inmobiliaria Rodríguez", status: "Vencido", dueDate: Date.now() - 8*86400000, owner: "Julian" },
-  { id: "dv6", clientId: "cl2", title: "Dashboard personalizado", client: "Inmobiliaria Rodríguez", status: "En progreso", dueDate: Date.now() + 2*86400000, owner: "Daniel" },
-  { id: "dv7", clientId: "cl3", title: "Onboarding CRM personalizado", client: "TechStartup MX", status: "Entregado", dueDate: Date.now() - 20*86400000, owner: "Julian" },
-  { id: "dv8", clientId: "cl5", title: "Configuración automatizaciones", client: "FoodTech CO", status: "Vencido", dueDate: Date.now() - 2*86400000, owner: "Daniel" },
-  { id: "dv9", clientId: "cl5", title: "Reporte Q1 pipeline", client: "FoodTech CO", status: "Vencido", dueDate: Date.now() - 15*86400000, owner: "Julian" },
-  { id: "dv10", clientId: "cl5", title: "Revisión estrategia de contenidos", client: "FoodTech CO", status: "Pendiente", dueDate: Date.now() + 4*86400000, owner: "Daniel" },
-  { id: "dv11", clientId: "cl5", title: "Análisis de conversión mensual", client: "FoodTech CO", status: "Pendiente", dueDate: Date.now() + 6*86400000, owner: "Julian" },
-  { id: "dv12", clientId: "cl5", title: "Setup de métricas Brevo", client: "FoodTech CO", status: "Vencido", dueDate: Date.now() - 7*86400000, owner: "Daniel" },
-];
+// Map a won CRM deal to a client card object
+function dealToClient(deal, stages, contacts) {
+  const contact = contacts.find(c => c.id === deal.contactId) || {};
+  return {
+    id: deal.id,
+    dealId: deal.id,
+    name: contact.name || "—",
+    company: contact.company || deal.title || "—",
+    contractValue: deal.value || 0,
+    startDate: deal.createdAt || Date.now(),
+    endDate: deal.expectedClose || (Date.now() + 365*86400000),
+    healthScore: 7,
+    renewalStage: "Saludable",
+    openDeliverables: 0,
+    lastInteraction: deal.updatedAt || deal.createdAt || Date.now(),
+  };
+}
 
 const RENEWAL_STAGES = ["Saludable", "Check-in Pendiente", "Conversación de Renovación", "Renovado", "Expandido", "En Riesgo"];
 
@@ -38,8 +37,14 @@ const STATUS_COLORS = {
 // ── CLIENTS SCREEN ────────────────────────────────────────────────────────────
 
 function ClientsScreen() {
-  const [clients, setClients] = React.useState(CLIENTS_SEED);
+  const crm = useCRM();
+  const wonDeals = crm.deals.filter(d => crm.stages.find(s => s.id === d.stageId)?.isWon);
+  const [clients, setClients] = React.useState([]);
   const [editHealth, setEditHealth] = React.useState({});
+
+  React.useEffect(() => {
+    setClients(wonDeals.map(d => dealToClient(d, crm.stages, crm.contacts)));
+  }, [crm.deals.length, crm.contacts.length]);
 
   const now = Date.now();
 
@@ -124,8 +129,14 @@ function ClientsScreen() {
 // ── RENEWALS KANBAN (HTML5 drag-and-drop) ────────────────────────────────────
 
 function RenewalsScreen() {
-  const [clients, setClients] = React.useState(CLIENTS_SEED);
+  const crm = useCRM();
+  const wonDeals = crm.deals.filter(d => crm.stages.find(s => s.id === d.stageId)?.isWon);
+  const [clients, setClients] = React.useState([]);
   const [dragId, setDragId] = React.useState(null);
+
+  React.useEffect(() => {
+    setClients(wonDeals.map(d => dealToClient(d, crm.stages, crm.contacts)));
+  }, [crm.deals.length, crm.contacts.length]);
   const [dragOverStage, setDragOverStage] = React.useState(null);
 
   const stageClients = stage => clients.filter(c => c.renewalStage === stage);
@@ -205,7 +216,10 @@ function RenewalsScreen() {
 const STATUS_ORDER = ["Vencido", "En progreso", "Pendiente", "Entregado"];
 
 function DeliverablesScreen() {
-  const [items, setItems] = React.useState(DELIVERABLES_SEED);
+  const crm = useCRM();
+  const wonDeals = crm.deals.filter(d => crm.stages.find(s => s.id === d.stageId)?.isWon);
+  const liveClients = wonDeals.map(d => dealToClient(d, crm.stages, crm.contacts));
+  const [items, setItems] = React.useState([]);
   const [clientFilter, setClientFilter] = React.useState("Todos");
   const [ownerFilter, setOwnerFilter] = React.useState("Todos");
   const [showAdd, setShowAdd] = React.useState(false);
@@ -218,7 +232,7 @@ function DeliverablesScreen() {
 
   const addDeliverable = () => {
     if (!form.title) return;
-    const client = CLIENTS_SEED.find(c => c.id === form.clientId);
+    const client = liveClients.find(c => c.id === form.clientId);
     setItems(prev => [{ ...form, id: `dv${Date.now()}`, client: client?.company || "Cliente" }, ...prev]);
     setForm({ title: "", clientId: "cl1", status: "Pendiente", dueDate: "", owner: "Daniel" });
     setShowAdd(false);
@@ -276,7 +290,7 @@ function DeliverablesScreen() {
                 <label style={{ fontSize: 11, color: "var(--crm-text-muted)", display: "block", marginBottom: 5 }}>Cliente</label>
                 <select value={form.clientId} onChange={e => setForm(p => ({ ...p, clientId: e.target.value }))}
                   style={{ width: "100%", padding: "8px 28px 8px 10px", borderRadius: 8, border: "1px solid var(--crm-border)", background: "var(--crm-bg)", color: "var(--crm-text)", fontSize: 13 }}>
-                  {CLIENTS_SEED.map(c => <option key={c.id} value={c.id}>{c.company}</option>)}
+                  {liveClients.map(c => <option key={c.id} value={c.id}>{c.company}</option>)}
                 </select>
               </div>
               <div>
