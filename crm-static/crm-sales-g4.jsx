@@ -3,13 +3,7 @@
 
 // ── Seed data ─────────────────────────────────────────────────────────────────
 
-const PROPOSALS_SEED_DATA = [
-  { id: "p1", dealTitle: "Plan Empresarial - TechStartup", contact: "María García", value: 25000000, status: "Vista", sentDate: Date.now() - 3*86400000, notes: "Revisando con su equipo técnico" },
-  { id: "p2", dealTitle: "CRM Inmobiliaria Rodríguez", contact: "Carlos Rodríguez", value: 18000000, status: "Enviada", sentDate: Date.now() - 6*86400000, notes: "Esperando respuesta" },
-  { id: "p3", dealTitle: "Suite Premium - Agencia Creativa", contact: "Laura Hernández", value: 45000000, status: "Aceptada", sentDate: Date.now() - 12*86400000, notes: "Contrato en proceso de firma" },
-  { id: "p4", dealTitle: "Paquete Básico - Dental Premium", contact: "Sofía Ramírez", value: 7500000, status: "Borrador", sentDate: null, notes: "Pendiente de ajustar precios" },
-  { id: "p5", dealTitle: "Consultoría RRHH - Martínez", contact: "Ana Martínez", value: 32000000, status: "Rechazada", sentDate: Date.now() - 20*86400000, notes: "Precio fuera de presupuesto. Seguir en nurturing." },
-];
+const PROPOSALS_SEED_DATA = []; // Proposals are added manually — no fake data
 
 const PROP_STAGES = ["Borrador", "Enviada", "Vista", "Aceptada", "Rechazada"];
 const PROP_STAGE_COLOR = {

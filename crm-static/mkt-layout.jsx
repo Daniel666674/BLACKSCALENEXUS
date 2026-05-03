@@ -2,12 +2,7 @@
 function MarketingLayout({ children, currentSection, onNavigate, onSwitchToSales }) {
   const mkt = useMarketing();
   const [bellOpen, setBellOpen] = React.useState(false);
-  const [notifications, setNotifications] = React.useState([
-    { id: "mn1", read: false, msg: "Deal 'Agencia Creativa' avanzó a Negociación", type: "deal", time: Date.now() - 1*3600000 },
-    { id: "mn2", read: false, msg: "Entregable 'Capacitación equipo' vencido hace 1d", type: "delivery", time: Date.now() - 3*3600000 },
-    { id: "mn3", read: false, msg: "Deal 'CRM Inmobiliaria' marcado como ganado", type: "deal", time: Date.now() - 10*3600000 },
-    { id: "mn4", read: true, msg: "3 contactos pasados a ventas desde Handoff Center", type: "handoff", time: Date.now() - 24*3600000 },
-  ]);
+  const [notifications, setNotifications] = React.useState([]);
   const unread = notifications.filter(n => !n.read).length;
   const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })));
 

@@ -347,9 +347,10 @@ function MktAnalytics() {
   const mkt = useMarketing();
   const campaigns = mkt.campaigns || [];
 
-  const avgOpenRate = campaigns.length ? (campaigns.reduce((s, c) => s + c.open_rate, 0) / campaigns.length).toFixed(1) : 0;
-  const avgClickRate = campaigns.length ? (campaigns.reduce((s, c) => s + c.click_rate, 0) / campaigns.length).toFixed(1) : 0;
-  const totalSent = campaigns.reduce((s, c) => s + (c.total_contacts || c.totalContacts || 0), 0);
+  const safeNum = v => (isNaN(+v) || !isFinite(+v)) ? 0 : +v;
+  const avgOpenRate = campaigns.length ? (campaigns.reduce((s, c) => s + safeNum(c.openRate ?? c.open_rate), 0) / campaigns.length).toFixed(1) : "0.0";
+  const avgClickRate = campaigns.length ? (campaigns.reduce((s, c) => s + safeNum(c.clickRate ?? c.click_rate), 0) / campaigns.length).toFixed(1) : "0.0";
+  const totalSent = campaigns.reduce((s, c) => s + safeNum(c.totalContacts ?? c.total_contacts), 0);
 
   const integrations = [
     { id: "ga", name: "Google Analytics", icon: "📊", status: "Pendiente", metrics: [{ l: "Sesiones", v: "—" }, { l: "Conversiones", v: "—" }, { l: "Fuente top", v: "—" }] },
@@ -377,8 +378,10 @@ function MktAnalytics() {
                   </div>
                 </div>
               </div>
-              <button style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${int.status === "Conectado" ? "#22c55e" : "var(--mkt-border)"}`, background: "transparent", color: int.status === "Conectado" ? "#22c55e" : "var(--mkt-text-muted)", fontSize: 12, cursor: "pointer" }}>
-                {int.status === "Conectado" ? "Ver datos" : `Conectar ${int.name.split(" ")[0]}`}
+              <button
+                onClick={() => { if (int.id === "brevo") window.open("https://app.brevo.com/campaigns", "_blank"); }}
+                style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${int.status === "Conectado" ? "#22c55e" : "var(--mkt-border)"}`, background: int.id === "brevo" ? "#22c55e14" : "transparent", color: int.status === "Conectado" ? "#22c55e" : "var(--mkt-text-muted)", fontSize: 12, cursor: int.id === "brevo" ? "pointer" : "default", fontWeight: int.id === "brevo" ? 600 : 400 }}>
+                {int.status === "Conectado" ? "Ver datos →" : `Conectar ${int.name.split(" ")[0]}`}
               </button>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
@@ -618,13 +621,14 @@ function MktDigest() {
   const camps = mkt.campaigns || [];
   const contacts = mkt.contacts || [];
 
-  const sentThisWeek = camps.filter(c => c.last_sent && (Date.now() - c.last_sent) < 7*86400000).reduce((s,c) => s + c.total_contacts, 0);
-  const avgOpen = camps.length ? (camps.reduce((s,c) => s + c.open_rate, 0) / camps.length).toFixed(1) : 0;
-  const totalClicks = camps.reduce((s,c) => s + Math.round(c.total_contacts * c.click_rate / 100), 0);
-  const totalReplies = camps.reduce((s,c) => s + Math.round(c.total_contacts * c.reply_rate / 100), 0);
+  const sn = v => (isNaN(+v) || !isFinite(+v)) ? 0 : +v;
+  const sentThisWeek = camps.filter(c => (c.lastSent||c.last_sent) && (Date.now() - (c.lastSent||c.last_sent)) < 7*86400000).reduce((s,c) => s + sn(c.totalContacts??c.total_contacts), 0);
+  const avgOpen = camps.length ? (camps.reduce((s,c) => s + sn(c.openRate??c.open_rate), 0) / camps.length).toFixed(1) : "0.0";
+  const totalClicks = camps.reduce((s,c) => s + Math.round(sn(c.totalContacts??c.total_contacts) * sn(c.clickRate??c.click_rate) / 100), 0);
+  const totalReplies = camps.reduce((s,c) => s + Math.round(sn(c.totalContacts??c.total_contacts) * sn(c.replyRate??c.reply_rate) / 100), 0);
   const newContacts = contacts.filter(c => (Date.now() - c.last_activity) < 7*86400000).length;
   const handoffs = contacts.filter(c => c.ready_for_sales || c.readyForSales).length;
-  const bestCamp = camps.sort((a,b) => b.open_rate - a.open_rate)[0];
+  const bestCamp = [...camps].sort((a,b) => sn(b.openRate??b.open_rate) - sn(a.openRate??a.open_rate))[0];
 
   const metrics = [
     { label: "Emails enviados esta semana", value: sentThisWeek.toLocaleString("es-CO"), icon: "✉️" },
@@ -652,8 +656,8 @@ function MktDigest() {
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>🏆 Campaña con mejor performance</div>
           <div style={{ fontSize: 18, fontWeight: 700 }}>{bestCamp.name}</div>
           <div style={{ display: "flex", gap: 20, marginTop: 10, fontSize: 13 }}>
-            <span style={{ color: "var(--mkt-text-muted)" }}>Open rate: <strong style={{ color: "var(--mkt-accent)" }}>{bestCamp.open_rate}%</strong></span>
-            <span style={{ color: "var(--mkt-text-muted)" }}>Clicks: <strong style={{ color: "var(--mkt-accent)" }}>{bestCamp.click_rate}%</strong></span>
+            <span style={{ color: "var(--mkt-text-muted)" }}>Open rate: <strong style={{ color: "var(--mkt-accent)" }}>{sn(bestCamp.openRate??bestCamp.open_rate).toFixed(1)}%</strong></span>
+            <span style={{ color: "var(--mkt-text-muted)" }}>Clicks: <strong style={{ color: "var(--mkt-accent)" }}>{sn(bestCamp.clickRate??bestCamp.click_rate).toFixed(1)}%</strong></span>
             <span style={{ color: "var(--mkt-text-muted)" }}>Conversiones: <strong style={{ color: "var(--mkt-accent)" }}>{bestCamp.conversions}</strong></span>
           </div>
         </MktCard>

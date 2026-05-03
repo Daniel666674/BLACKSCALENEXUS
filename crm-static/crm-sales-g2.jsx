@@ -3,12 +3,7 @@
 
 // ── Seed data ─────────────────────────────────────────────────────────────────
 
-const RADAR_SEED = [
-  { id: "r1", contactId: "c4", name: "Roberto Sánchez", company: "Tienda en Línea SA", tier: 3, reengageDate: Date.now() - 2*86400000, reason: "Sin presupuesto Q1", trigger: "Inicio de Q2 / nuevo presupuesto" },
-  { id: "r2", contactId: "c6", name: "Diego Flores", company: "LogiMex", tier: 3, reengageDate: Date.now() + 5*86400000, reason: "No tiene autorización interna", trigger: "Cambio de directivo o aprobación de junta" },
-  { id: "r3", contactId: "c7", name: "Sofía Ramírez", company: "Dental Premium", tier: 2, reengageDate: Date.now(), reason: "Esperando resultado de otra solución", trigger: "Vencimiento de contrato con competidor" },
-  { id: "r4", contactId: "c2", name: "Carlos Rodríguez", company: "Inmobiliaria Rodríguez", tier: 1, reengageDate: Date.now() + 15*86400000, reason: "Timing: cierre de mes muy ocupado", trigger: "Inicio de mes / apertura de nuevas sucursales" },
-];
+const RADAR_SEED = []; // Contacts are added manually via the UI — no fake data
 
 const ICP_INDUSTRIES = ["Tecnología", "Inmobiliaria", "Consultoría", "Salud", "Marketing", "Finanzas", "E-commerce", "Logística", "Educación", "Construcción"];
 const ICP_GEOGRAPHIES = ["Colombia", "México", "Latinoamérica", "Global"];
