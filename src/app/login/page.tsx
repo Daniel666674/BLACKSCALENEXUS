@@ -40,7 +40,8 @@ function LoginPageInner() {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setError("");
-    await signIn("google", { callbackUrl: "/" });
+    // callbackUrl is resolved against the origin (not Next's basePath), so spell out /app/.
+    await signIn("google", { callbackUrl: "/app/" });
     // signIn redirects — loading stays true until navigation
   };
 
