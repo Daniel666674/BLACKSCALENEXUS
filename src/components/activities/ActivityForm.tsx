@@ -52,7 +52,7 @@ export function ActivityForm({
 
   useEffect(() => {
     if (open && !preselectedContactId) {
-      fetch("/api/contacts")
+      fetch("/app/api/contacts")
         .then((r) => r.json())
         .then(setContacts);
     }
@@ -78,7 +78,7 @@ export function ActivityForm({
 
   const onSubmit = async (data: ActivityFormData) => {
     try {
-      const res = await fetch("/api/activities", {
+      const res = await fetch("/app/api/activities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

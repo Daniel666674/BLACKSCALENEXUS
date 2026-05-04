@@ -26,7 +26,7 @@ export default function CalendarSettingsPage() {
 
   useEffect(() => {
     setLoadingEvents(true);
-    fetch("/api/google/calendar/events")
+    fetch("/app/api/google/calendar/events")
       .then((r) => r.json())
       .then((d) => {
         setEvents(d.events ?? []);
@@ -36,7 +36,7 @@ export default function CalendarSettingsPage() {
   }, []);
 
   const handleConnect = () => {
-    window.location.href = "/api/google/calendar/auth";
+    window.location.href = "/app/api/google/calendar/auth";
   };
 
   return (

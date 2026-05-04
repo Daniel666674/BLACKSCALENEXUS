@@ -174,7 +174,7 @@ export function Header() {
               <button
                 onClick={() => {
                   setDropdownOpen(false);
-                  signOut({ callbackUrl: "/login" });
+                  signOut({ callbackUrl: "/app/login" });
                 }}
                 style={{
                   display: "flex", alignItems: "center", gap: 10, padding: "9px 10px",

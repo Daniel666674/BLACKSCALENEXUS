@@ -24,7 +24,7 @@ export default function AnalyticsPage() {
   const load = () => {
     setLoading(true);
     setError("");
-    fetch("/api/google/analytics")
+    fetch("/app/api/google/analytics")
       .then((r) => r.json())
       .then((d) => {
         if (d.error) { setError(d.error); return; }
