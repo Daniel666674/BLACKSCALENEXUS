@@ -13,7 +13,7 @@ export default function ContactsPage() {
   const [loading, setLoading] = useState(true);
 
   const loadContacts = () => {
-    fetch("/api/contacts")
+    fetch("/app/api/contacts")
       .then((res) => res.json())
       .then((data) => {
         setContacts(data);

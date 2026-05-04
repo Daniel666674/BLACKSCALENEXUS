@@ -140,5 +140,5 @@ mkdir -p /var/backups/nexus/daily
 echo ""
 echo "==================================================================="
 echo " BlackScale Nexus VPS setup complete."
-echo " Visit: https://crm.blackscale.consulting"
+echo " Visit: https://crm.blackscale.consulting/app/"
 echo "==================================================================="

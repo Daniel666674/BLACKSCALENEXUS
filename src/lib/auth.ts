@@ -68,7 +68,8 @@ export const authOptions: NextAuthOptions = {
       options: {
         httpOnly: true,
         sameSite: "lax",
-        path: "/",
+        // Scope the session cookie to the /app mount — the CRM is not at root.
+        path: "/app",
         secure: process.env.NODE_ENV === "production",
       },
     },
