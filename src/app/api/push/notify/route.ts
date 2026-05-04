@@ -13,10 +13,10 @@ export async function POST(req: NextRequest) {
 
   switch (type) {
     case "contact_hot":
-      await notifyContactHot(data.contactId, data.contactName);
+      await notifyContactHot(data.contactId as string, data.contactName as string);
       break;
     case "deal_stage_changed":
-      await notifyDealStageChanged(data.dealId, data.dealTitle, data.stageName);
+      await notifyDealStageChanged(data.dealId as string, data.dealTitle as string, data.stageName as string);
       break;
     case "daily_briefing":
       await sendDailyBriefing();
